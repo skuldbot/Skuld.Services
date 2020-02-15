@@ -1,7 +1,6 @@
 ﻿using Discord;
 using Skuld.Bot.Models.Services.Reminder;
 using Skuld.Core.Extensions;
-using Skuld.Discord.Handlers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,7 +27,10 @@ namespace Skuld.Services.Reminders
                     {
                         if (entry.Timeout <= currentTime)
                         {
-                            await MessageSender.ReplyAsync((await entry.User.GetOrCreateDMChannelAsync().ConfigureAwait(false) ?? entry.Channel), $"On {entry.Created.ToString("yyyy'/'MM'/'dd HH:mm:ss")} you asked me to remind you: {entry.Content}").ConfigureAwait(false);
+                            await
+                                (await entry.User.GetOrCreateDMChannelAsync().ConfigureAwait(false) ?? entry.Channel)
+                                .SendMessageAsync($"On {entry.Created.ToString("yyyy'/'MM'/'dd HH:mm:ss")} you asked me to remind you: {entry.Content}")
+                            .ConfigureAwait(false);
 
                             RemoveReminders.Add(entry);
                         }

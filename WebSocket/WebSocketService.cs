@@ -5,7 +5,6 @@ using Skuld.Bot.Models.Services.WebSocket;
 using Skuld.Core;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
-using Skuld.Discord.Services;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,11 +15,12 @@ namespace Skuld.Services.WebSocket
 {
     public class WebSocketService : IDisposable
     {
-        public DiscordShardedClient Client => BotService.DiscordClient;
+        public DiscordShardedClient Client;
         private readonly WebSocketServer _server;
 
-        public WebSocketService(SkuldConfig configuration)
+        public WebSocketService(DiscordShardedClient client, SkuldConfig configuration)
         {
+            Client = client;
             _server = new WebSocketServer($"{(configuration.WebsocketSecure ? "wss" : "ws")}://{configuration.WebsocketHost}:{configuration.WebsocketPort}");
             _server.Start(x =>
             {
@@ -244,9 +244,9 @@ namespace Skuld.Services.WebSocket
                     $"\"Uptime\":\"{$"{DateTime.Now.Subtract(Process.GetCurrentProcess().StartTime):dd}d {DateTime.Now.Subtract(Process.GetCurrentProcess().StartTime):hh}:{DateTime.Now.Subtract(Process.GetCurrentProcess().StartTime):mm}"}\"," +
                     $"\"Ping\":{Client.Latency}," +
                     $"\"Guilds\":{Client.Guilds.Count}," +
-                    $"\"Users\":{BotService.Users}," +
+                    //$"\"Users\":{BotService.Users}," +
                     $"\"Shards\":{Client.Shards.Count}," +
-                    $"\"Commands\":{BotService.CommandService.Commands.Count()}," +
+                    //$"\"Commands\":{BotService.CommandService.Commands.Count()}," +
                     $"\"MemoryUsed\":\"{mem}\"}}";
 
                 await conn.Send(JsonConvert.SerializeObject(rawjson)).ConfigureAwait(false);

@@ -2,22 +2,33 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <AssemblyVersion>2020.2.4.0</AssemblyVersion>
-    <FileVersion>2020.2.4.0</FileVersion>
+    <AssemblyVersion>2020.2.55.0</AssemblyVersion>
+    <FileVersion>2020.2.55.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Akitaux.Twitch.Helix" Version="0.1.0-build-00012" />
     <PackageReference Include="Discord.Net.Commands" Version="2.2.0-dev-20191226.1" />
     <PackageReference Include="Discord.Net.Core" Version="2.2.0-dev-20191226.1" />
     <PackageReference Include="Discord.Net.WebSocket" Version="2.2.0-dev-20191226.1" />
     <PackageReference Include="DogStatsD-CSharp-Client" Version="4.0.1" />
     <PackageReference Include="Fleck" Version="1.1.0" />
+    <PackageReference Include="IqdbApi" Version="1.4.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Skuld.Core\Skuld.Core.csproj" />
     <ProjectReference Include="..\Skuld.Discord\Skuld.Discord.csproj" />
     <ProjectReference Include="..\Skuld.Models\Skuld.Core.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Discord.Addons.Interactive">
+      <HintPath>..\References\Discord.Addons.Interactive.dll</HintPath>
+    </Reference>
+    <Reference Include="Miki.API.Images">
+      <HintPath>..\References\Miki.API.Images.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

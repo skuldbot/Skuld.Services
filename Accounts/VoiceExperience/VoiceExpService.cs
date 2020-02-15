@@ -1,7 +1,7 @@
 ﻿using Discord.WebSocket;
 using Skuld.Core.Extensions;
 using Skuld.Core.Models;
-using Skuld.Discord.Extensions;
+using Skuld.Services.Extensions;
 using Skuld.Services.VoiceExperience.Models;
 using System;
 using System.Collections.Concurrent;
@@ -45,6 +45,8 @@ namespace Skuld.Services.VoiceExperience
 
         private static async Task DoLeaveXpGrantAsync(SocketGuildUser user, SocketVoiceChannel channel)
         {
+            if (user.IsBot || user.IsWebhook) return;
+
             var userEvents = Targets.Where(x => x.User == user && x.VoiceChannel.Id == channel.Id).ToList();
 
             { // Remove All Events that exist for this user and channel
