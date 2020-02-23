@@ -1,7 +1,7 @@
-﻿using Skuld.Discord.Models;
+﻿using Skuld.Services.Messaging.Models;
 using System.Collections.Concurrent;
 
-namespace Skuld.Discord.Services
+namespace Skuld.Services.Messaging
 {
     public static class MessageQueue
     {

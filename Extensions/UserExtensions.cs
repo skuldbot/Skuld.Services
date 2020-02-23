@@ -17,8 +17,7 @@ namespace Skuld.Services.Extensions
 {
     public static class UserExtensions
     {
-
-        public static async Task<object> GrantExperienceAsync(this User user, ulong amount, IGuild guild, bool skipTimeCheck = false)
+        public static async Task<object> GrantExperienceAsync(this User user, ulong amount, IGuild guild, IUserMessage message, Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action, bool skipTimeCheck = false)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             var luxp = Database.UserXp.FirstOrDefault(x => x.UserId == user.Id && x.GuildId == guild.Id);
@@ -27,21 +26,28 @@ namespace Skuld.Services.Extensions
 
             if (luxp != null)
             {
-                ulong levelAmount = 0;
-
-                var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1, DiscordUtilities.PHI); //get next level xp requirement based on phi
-                while ((luxp.XP + amount) >= xptonextlevel)
-                {
-                    xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1 + levelAmount, DiscordUtilities.PHI);
-                    levelAmount++;
-                }
-
                 if (luxp.LastGranted < (DateTime.UtcNow.ToEpoch() - 60) || skipTimeCheck)
                 {
-                    DogStatsd.Increment("user.levels.processed");
+                    ulong levelAmount = 0;
+
+                    var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1, DiscordUtilities.PHI); //get next level xp requirement based on phi
+                    var currXp = (luxp.XP + amount);
+                    while (currXp >= xptonextlevel)
+                    {
+                        DogStatsd.Increment("user.levels.processed");
+                        xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1 + levelAmount, DiscordUtilities.PHI);
+                        levelAmount++;
+                        currXp -= xptonextlevel;
+                        action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
+                                      guild,
+                                      await Database.GetOrInsertGuildAsync(guild).ConfigureAwait(false),
+                                      message,
+                                      luxp.Level + levelAmount);
+                    }
+
                     if (levelAmount > 0) //if over or equal to next level requirement, update accordingly
                     {
-                        luxp.XP = 0;
+                        luxp.XP = currXp;
                         luxp.TotalXP += amount;
                         luxp.Level += levelAmount;
                         luxp.LastGranted = DateTime.UtcNow.ToEpoch();
@@ -165,9 +171,9 @@ namespace Skuld.Services.Extensions
         public static bool IsStreakReset(this User target, SkuldConfig config)
         {
             if (target.Flags.IsBitSet(DiscordUtilities.BotDonator))
-                return target.Streak > (config.MaxStreak * 2) || target.LastDaily > target.LastDaily.FromEpoch().AddDays((config.StreakLimitDays * 2)).ToEpoch();
+                return target.LastDaily > target.LastDaily.FromEpoch().AddDays((config.StreakLimitDays * 2)).ToEpoch();
             else
-                return target.Streak > config.MaxStreak || target.LastDaily > target.LastDaily.FromEpoch().AddDays(config.StreakLimitDays).ToEpoch();
+                return target.LastDaily > target.LastDaily.FromEpoch().AddDays(config.StreakLimitDays).ToEpoch();
         }
 
         public static ulong GetDailyAmount(this User target, SkuldConfig config)
@@ -188,11 +194,6 @@ namespace Skuld.Services.Extensions
                 {
                     target.Money += target.GetDailyAmount(config);
 
-                    if (target.IsStreakReset(config))
-                    {
-                        target.Streak = 0;
-                    }
-
                     target.LastDaily = DateTime.UtcNow.ToEpoch();
                     wasSuccessful = true;
                 }
@@ -202,11 +203,6 @@ namespace Skuld.Services.Extensions
                 if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
                     target.Money += donor.GetDailyAmount(config);
-
-                    if (donor.IsStreakReset(config))
-                    {
-                        donor.Streak = 0;
-                    }
 
                     donor.LastDaily = DateTime.UtcNow.ToEpoch();
                     wasSuccessful = true;

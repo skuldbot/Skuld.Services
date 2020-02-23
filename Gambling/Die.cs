@@ -6,7 +6,9 @@ namespace Skuld.Bot.Models
     {
         public ushort Face { get; private set; }
 
-        public Die(){}
+        public Die()
+        {
+        }
 
         public Die Roll()
         {

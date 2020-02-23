@@ -1,4 +1,5 @@
-﻿using Discord.WebSocket;
+﻿using Discord;
+using Discord.WebSocket;
 using Skuld.Core.Extensions;
 using Skuld.Core.Models;
 using Skuld.Services.Extensions;
@@ -14,7 +15,7 @@ namespace Skuld.Services.VoiceExperience
     public class VoiceExpService
     {
         private static DiscordShardedClient DiscordClient;
-        static SkuldConfig Configuration;
+        private static SkuldConfig Configuration;
 
         private static ConcurrentBag<VoiceEvent> Targets;
 
@@ -93,7 +94,46 @@ namespace Skuld.Services.VoiceExperience
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
 
                 var skUser = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
-                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild).ConfigureAwait(false);
+                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild, null, async (usr, gld, dbGuild, umsg, level) =>
+                {
+                    var msg = dbGuild.LevelUpMessage;
+                    if (msg != null)
+                        msg = msg
+                            .Replace("-m", user.Mention)
+                            .Replace("-u", user.Username)
+                            .Replace("-l", level.ToString("N0"));
+                    else
+                        msg = $"Congratulations {user.Mention}!! You're now level **{level}**";
+
+                    switch (dbGuild.LevelNotification)
+                    {
+                        case LevelNotification.Channel:
+                            {
+                                if (dbGuild.LevelUpChannel != 0)
+                                {
+                                    msg += $"\n**FROM VOICE**";
+
+                                    await (await gld.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false)).SendMessageAsync(msg).ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    await usr.SendMessageAsync(msg).ConfigureAwait(false);
+                                }
+                            }
+                            break;
+
+                        case LevelNotification.DM:
+                            {
+                                msg += $"\n**FROM VOICE**";
+                                await usr.SendMessageAsync(msg).ConfigureAwait(false);
+                            }
+                            break;
+
+                        case LevelNotification.None:
+                        default:
+                            break;
+                    }
+                }).ConfigureAwait(false);
             }
         }
 

@@ -13,7 +13,9 @@ namespace Skuld.Services.Globalization
         public Dictionary<string, string> LocaleHumanNames { get => localehumannames; }
         public const string DefaultLocale = "en-GB";
 
-        public Locale(){}
+        public Locale()
+        {
+        }
 
         public void InitialiseLocales()
         {

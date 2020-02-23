@@ -23,7 +23,49 @@ namespace Skuld.Services.Accounts.Experience
                 User = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
             }
 
-            var result = await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild);
+            var result = await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, async (user, guild, dbGuild, dMsg, level) =>
+            {
+                var msg = dbGuild.LevelUpMessage;
+                if (msg != null)
+                    msg = msg
+                        .Replace("-m", user.Mention)
+                        .Replace("-u", user.Username)
+                        .Replace("-l", level.ToString("N0"));
+                else
+                    msg = $"Congratulations {user.Mention}!! You're now level **{level}**";
+
+                switch (dbGuild.LevelNotification)
+                {
+                    case LevelNotification.Channel:
+                        {
+                            if (dbGuild.LevelUpChannel != 0)
+                            {
+                                if (message.Channel.Id != dbGuild.LevelUpChannel)
+                                {
+                                    msg += $"\nMessage that caused level Up: {dMsg.GetJumpUrl()}";
+                                }
+
+                                await (await guild.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false)).SendMessageAsync(msg).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                await message.Channel.SendMessageAsync(msg).ConfigureAwait(false);
+                            }
+                        }
+                        break;
+
+                    case LevelNotification.DM:
+                        {
+                            msg += $"\nMessage that caused level Up: {dMsg.GetJumpUrl()}";
+                            await user.SendMessageAsync(msg).ConfigureAwait(false);
+                        }
+                        break;
+
+                    case LevelNotification.None:
+                    default:
+                        break;
+                }
+            });
 
             if (result != null)
             {
@@ -40,14 +82,6 @@ namespace Skuld.Services.Accounts.Experience
                     }
 
                     string msg = sguild.LevelUpMessage;
-
-                    if (msg != null)
-                        msg = msg
-                            .Replace("-m", user.Mention)
-                            .Replace("-u", user.Username)
-                            .Replace("-l", luxp.Level.ToString("N0"));
-                    else
-                        msg = $"Congratulations {user.Mention}!! You're now level **{luxp.Level}**";
 
                     string appendix = null;
 
@@ -104,6 +138,5 @@ namespace Skuld.Services.Accounts.Experience
 
             return;
         }
-
     }
 }

@@ -13,9 +13,9 @@ using Skuld.APIS;
 using Skuld.Core;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
-using Skuld.Discord;
-using Skuld.Discord.Models;
 using Skuld.Discord.TypeReaders;
+using Skuld.Services.Bot.Discord;
+using Skuld.Services.Discord.Models;
 using Skuld.Services.Globalization;
 using Skuld.Services.VoiceExperience;
 using Skuld.Services.WebSocket;
@@ -102,6 +102,7 @@ namespace Skuld.Services.Bot
         }
 
         #region Services
+
         internal static async Task<EventResult> ConfigureCommandServiceAsync()
         {
             try
@@ -112,32 +113,13 @@ namespace Skuld.Services.Bot
                 CommandService.Log += BotMessaging.CommandService_Log;
 
                 CommandService.AddTypeReader<Uri>(new UriTypeReader());
+                CommandService.AddTypeReader<Guid>(new GuidTypeReader());
                 CommandService.AddTypeReader<Emoji>(new EmojiTypeReader());
                 CommandService.AddTypeReader<IPAddress>(new IPAddressTypeReader());
                 CommandService.AddTypeReader<RoleConfig>(new RoleConfigTypeReader());
                 CommandService.AddTypeReader<DateTimeZone>(new DateTimeZoneTypeReader());
                 CommandService.AddTypeReader<GuildRoleConfig>(new GuildRoleConfigTypeReader());
-                var loadedModules = await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), Services).ConfigureAwait(false);
-
-                string modules = "";
-
-                foreach (var module in loadedModules)
-                {
-                    string commands = "";
-
-                    foreach(var command in module.Commands)
-                    {
-                        commands += $"{command.Name}, ";
-                    }
-
-                    commands = commands[0..^2];
-
-                    modules += $"{module.Name}({module.Commands.Count})\n{commands}\n\n";
-                }
-
-                modules = modules[0..^2];
-
-                Log.Info("Framework", $"Loaded Modules:\n{modules}");
+                await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), Services).ConfigureAwait(false);
 
                 return EventResult.FromSuccess();
             }
@@ -171,7 +153,7 @@ namespace Skuld.Services.Bot
                     .AddSingleton<WikipediaClient>()
                     .AddSingleton<WebComicClients>()
                     .AddSingleton<UrbanDictionaryClient>();
-                    
+
                 // Github
                 {
                     if (!string.IsNullOrEmpty(Configuration.GithubClientUsername) && !string.IsNullOrEmpty(Configuration.GithubClientPassword) && Configuration.GithubRepository != 0)
@@ -231,9 +213,11 @@ namespace Skuld.Services.Bot
 
             ConfigureStatsCollector(Configuration);
         }
+
         #endregion Services
 
         #region Statistics
+
         private static void ConfigureStatsCollector(SkuldConfig Configuration)
         {
             DogStatsd.Configure(new StatsdConfig
@@ -303,6 +287,7 @@ namespace Skuld.Services.Bot
                 }
             }
         }
+
         #endregion Statistics
     }
 }

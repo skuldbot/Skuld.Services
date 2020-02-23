@@ -6,7 +6,6 @@ using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Verification;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
-using Skuld.Discord.Extensions;
 using Skuld.Services.BotListing;
 using StatsdClient;
 using System;
@@ -153,7 +152,6 @@ namespace Skuld.Services.Bot
                                 ).ConfigureAwait(false);
                             }
                         }
-
                     }
                 }
                 catch (Exception ex)
@@ -314,15 +312,15 @@ namespace Skuld.Services.Bot
             DogStatsd.Increment("guild.users.joined");
 
             {
-                using SkuldDatabaseContext database = new SkuldDbContextFactory().CreateDbContext();
+                using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
                 await database.InsertOrGetUserAsync(arg as IUser).ConfigureAwait(false);
             }
 
             {
-                using SkuldDatabaseContext database = new SkuldDbContextFactory().CreateDbContext();
+                using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
-                if(database.PersistentRoles.ToList().Any(x => x.UserId == arg.Id && x.GuildId == arg.Guild.Id))
+                if (database.PersistentRoles.ToList().Any(x => x.UserId == arg.Id && x.GuildId == arg.Guild.Id))
                 {
                     foreach (var persistentRole in database.PersistentRoles.ToList().Where(x => x.UserId == arg.Id && x.GuildId == arg.Guild.Id))
                     {
@@ -336,7 +334,7 @@ namespace Skuld.Services.Bot
             }
 
             {
-                using SkuldDatabaseContext database = new SkuldDbContextFactory().CreateDbContext();
+                using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
                 var gld = await database.GetOrInsertGuildAsync(arg.Guild).ConfigureAwait(false);
 
@@ -356,8 +354,6 @@ namespace Skuld.Services.Bot
                     }
                 }
             }
-
-
 
             Log.Verbose(Key, $"{arg} joined {arg.Guild}");
         }
@@ -496,10 +492,10 @@ namespace Skuld.Services.Bot
         }
 
         private static async Task Bot_GuildMemberUpdated(SocketGuildUser arg1, SocketGuildUser arg2)
-        {   
-            using SkuldDatabaseContext database = new SkuldDbContextFactory().CreateDbContext();
+        {
+            using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
-            if(arg1.Roles.Count != arg2.Roles.Count)
+            if (arg1.Roles.Count != arg2.Roles.Count)
             {
                 var guildPersistentRoles = database.PersistentRoles.AsQueryable().Where(x => x.GuildId == arg2.Guild.Id).DistinctBy(x => x.RoleId).ToList();
 
@@ -509,7 +505,7 @@ namespace Skuld.Services.Bot
                     {
                         if (z.RoleId == x.Id)
                         {
-                            if(!database.PersistentRoles.Any(y=>y.RoleId == z.RoleId && y.UserId == arg2.Id && y.GuildId == arg2.Guild.Id))
+                            if (!database.PersistentRoles.Any(y => y.RoleId == z.RoleId && y.UserId == arg2.Id && y.GuildId == arg2.Guild.Id))
                             {
                                 database.PersistentRoles.Add(new PersistentRole
                                 {

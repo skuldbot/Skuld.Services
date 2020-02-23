@@ -2,32 +2,32 @@
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
 using StatsdClient;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Skuld.Services.CustomCommands
 {
     public static class CustomCommandService
     {
-        static System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
+        private static System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
 
         public static async Task HandleCustomCommandAsync(ShardedCommandContext context, SkuldConfig config)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
             var prefix = MessageTools.GetPrefixFromCommand(context.Message.Content, config.Prefix, config.AltPrefix, (await Database.GetOrInsertGuildAsync(context.Guild).ConfigureAwait(false)).Prefix);
-            var name = MessageTools.GetCommandName(prefix, context.Message);
-            var customcommand = Database.CustomCommands.FirstOrDefault(x => x.GuildId == context.Guild.Id && x.Name.ToLower() == name.ToLower());
-
-            if (customcommand != null)
+            if(prefix != null)
             {
-                await DispatchCommandAsync(context, customcommand).ConfigureAwait(false);
-                return;
+                var name = MessageTools.GetCommandName(prefix, context.Message);
+                var customcommand = Database.CustomCommands.FirstOrDefault(x => x.GuildId == context.Guild.Id && x.Name.ToLower() == name.ToLower());
+
+                if (customcommand != null)
+                {
+                    await DispatchCommandAsync(context, customcommand).ConfigureAwait(false);
+                    return;
+                }
             }
+
             return;
         }
 

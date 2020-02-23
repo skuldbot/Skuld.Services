@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Skuld.Bot.Models
 {
@@ -56,7 +55,7 @@ namespace Skuld.Bot.Models
 
         public Die[] Roll()
         {
-            foreach(var die in dies)
+            foreach (var die in dies)
             {
                 die.Roll();
             }

@@ -5,11 +5,12 @@ using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Verification;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
-using Skuld.Discord.Extensions;
 using Skuld.Services.Accounts.Experience;
 using Skuld.Services.CustomCommands;
+using Skuld.Services.Messaging.Extensions;
 using StatsdClient;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -92,7 +93,7 @@ namespace Skuld.Services.Bot
                 {
                     string prefix = BotService.Configuration.Prefix;
 
-                    if(arg2.Guild != null)
+                    if (arg2.Guild != null)
                     {
                         using var Database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -107,7 +108,7 @@ namespace Skuld.Services.Bot
                 if (arg3.ErrorReason.Contains("Timeout"))
                 {
                     var hourglass = new Emoji("⏳");
-                    if (!arg2.Message.Reactions.Any(x=>x.Key == hourglass && x.Value.IsMe))
+                    if (!arg2.Message.Reactions.Any(x => x.Key == hourglass && x.Value.IsMe))
                     {
                         await arg2.Message.AddReactionAsync(hourglass).ConfigureAwait(false);
                     }
@@ -195,6 +196,29 @@ namespace Skuld.Services.Bot
                     await Database.SaveChangesAsync().ConfigureAwait(false);
                 }
 
+                {
+                    var keys = Database.DonatorKeys.ToList().Where(x => x.Redeemer == suser.Id).ToList();
+
+                    if (keys.Any())
+                    {
+                        var current = DateTime.Now.ToEpoch();
+                        keys.ForEach(x =>
+                        {
+                            if (current > x.RedeemedWhen.FromEpoch().AddDays(365).ToEpoch())
+                            {
+                                keys.Remove(x);
+                            }
+                        });
+
+                        if (keys.Count <= 0)
+                        {
+                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                            suser.Flags -= DiscordUtilities.BotDonator;
+                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                        }
+                    }
+                }
+
                 if (message.Channel is ITextChannel)
                 {
                     var gld = (message.Channel as ITextChannel).Guild;
@@ -204,7 +228,7 @@ namespace Skuld.Services.Bot
 
                 if (sguild != null)
                 {
-                    if (!Database.Features.Any(x=>x.Id == sguild.Id))
+                    if (!Database.Features.Any(x => x.Id == sguild.Id))
                     {
                         Database.Features.Add(new GuildFeatures
                         {
@@ -226,7 +250,6 @@ namespace Skuld.Services.Bot
 
                 if (sguild != null)
                 {
-
                     if (!Database.Modules.Any(x => x.Id == sguild.Id))
                     {
                         Database.Modules.Add(new GuildModules
@@ -246,7 +269,10 @@ namespace Skuld.Services.Bot
 
                 var prefix = MessageTools.GetPrefixFromCommand(context.Message.Content, BotService.Configuration.Prefix, BotService.Configuration.AltPrefix, sguild?.Prefix);
 
-                await DispatchCommandAsync(context, prefix).ConfigureAwait(false);
+                if(prefix != null)
+                {
+                    await DispatchCommandAsync(context, prefix).ConfigureAwait(false);
+                }
             }
             catch (Exception ex)
             {
@@ -257,7 +283,7 @@ namespace Skuld.Services.Bot
         #endregion HandleProcessing
 
         #region Dispatching
-        
+
         public static async Task DispatchCommandAsync(ShardedCommandContext context, string prefix)
         {
             try
