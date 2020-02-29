@@ -7,8 +7,8 @@ namespace Skuld.Services.Discord.Models
 {
     public class GuildRoleConfig
     {
-        public int Cost;
-        public int RequireLevel;
+        public ulong Cost;
+        public ulong RequireLevel;
         public IRole RequiredRole;
 
         public GuildRoleConfig()
@@ -28,7 +28,7 @@ namespace Skuld.Services.Discord.Models
 
             if (inputsplit.Where(x => x.StartsWith("cost=")).Any())
             {
-                if (int.TryParse(inputsplit.LastOrDefault(x => x.StartsWith("cost=")).Replace("cost=", ""), out int result))
+                if (ulong.TryParse(inputsplit.LastOrDefault(x => x.StartsWith("cost=")).Replace("cost=", ""), out ulong result))
                 {
                     roleConfig.Cost = result;
                 }
@@ -44,7 +44,7 @@ namespace Skuld.Services.Discord.Models
 
             if (inputsplit.Where(x => x.StartsWith("require-level=")).Any())
             {
-                if (int.TryParse(inputsplit.LastOrDefault(x => x.StartsWith("require-level=")).Replace("require-level=", ""), out int result))
+                if (ulong.TryParse(inputsplit.LastOrDefault(x => x.StartsWith("require-level=")).Replace("require-level=", ""), out ulong result))
                 {
                     roleConfig.RequireLevel = result;
                 }

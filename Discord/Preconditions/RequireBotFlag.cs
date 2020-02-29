@@ -37,7 +37,7 @@ namespace Skuld.Services.Discord.Preconditions
                 return BotAccessLevel.BotOwner;
             if (user.Flags.IsBitSet(DiscordUtilities.BotAdmin))
                 return BotAccessLevel.BotAdmin;
-            if (user.Flags.IsBitSet(DiscordUtilities.BotDonator))
+            if (user.IsDonator)
                 return BotAccessLevel.BotDonator;
             if (user.Flags.IsBitSet(DiscordUtilities.BotTester))
                 return BotAccessLevel.BotTester;

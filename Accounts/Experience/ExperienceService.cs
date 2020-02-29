@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Skuld.Bot.Extensions;
 using Skuld.Core;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
@@ -30,7 +31,7 @@ namespace Skuld.Services.Accounts.Experience
                     msg = msg
                         .Replace("-m", user.Mention)
                         .Replace("-u", user.Username)
-                        .Replace("-l", level.ToString("N0"));
+                        .Replace("-l", level.ToFormattedString());
                 else
                     msg = $"Congratulations {user.Mention}!! You're now level **{level}**";
 

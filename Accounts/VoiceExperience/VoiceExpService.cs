@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.WebSocket;
+using Skuld.Bot.Extensions;
 using Skuld.Core.Extensions;
 using Skuld.Core.Models;
 using Skuld.Services.Extensions;
@@ -101,7 +102,7 @@ namespace Skuld.Services.VoiceExperience
                         msg = msg
                             .Replace("-m", user.Mention)
                             .Replace("-u", user.Username)
-                            .Replace("-l", level.ToString("N0"));
+                            .Replace("-l", level.ToFormattedString());
                     else
                         msg = $"Congratulations {user.Mention}!! You're now level **{level}**";
 

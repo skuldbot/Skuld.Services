@@ -170,7 +170,7 @@ namespace Skuld.Services.Extensions
 
         public static bool IsStreakReset(this User target, SkuldConfig config)
         {
-            if (target.Flags.IsBitSet(DiscordUtilities.BotDonator))
+            if (target.IsDonator)
                 return target.LastDaily > target.LastDaily.FromEpoch().AddDays((config.StreakLimitDays * 2)).ToEpoch();
             else
                 return target.LastDaily > target.LastDaily.FromEpoch().AddDays(config.StreakLimitDays).ToEpoch();
@@ -178,7 +178,7 @@ namespace Skuld.Services.Extensions
 
         public static ulong GetDailyAmount(this User target, SkuldConfig config)
         {
-            if (target.Flags.IsBitSet(DiscordUtilities.BotDonator))
+            if (target.IsDonator)
                 return config.DailyAmount + (config.DailyAmount * Math.Min(100, target.Streak)) * 2;
             else
                 return config.DailyAmount + (config.DailyAmount * Math.Min(100, target.Streak));
@@ -192,7 +192,7 @@ namespace Skuld.Services.Extensions
             {
                 if (target.LastDaily == 0 || target.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
-                    target.Money += target.GetDailyAmount(config);
+                    target.Money = target.Money.Add(target.GetDailyAmount(config));
 
                     target.LastDaily = DateTime.UtcNow.ToEpoch();
                     wasSuccessful = true;
@@ -202,7 +202,7 @@ namespace Skuld.Services.Extensions
             {
                 if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
-                    target.Money += donor.GetDailyAmount(config);
+                    target.Money = target.Money.Add(donor.GetDailyAmount(config));
 
                     donor.LastDaily = DateTime.UtcNow.ToEpoch();
                     wasSuccessful = true;

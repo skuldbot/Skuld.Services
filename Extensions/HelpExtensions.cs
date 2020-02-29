@@ -1,8 +1,10 @@
 ﻿using Discord;
 using Discord.Commands;
 using Skuld.Services.Discord.Attributes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Skuld.Core.Extensions
@@ -11,41 +13,20 @@ namespace Skuld.Core.Extensions
     {
         public static async Task<EmbedBuilder> GetCommandHelpAsync(this CommandService commandService, ICommandContext context, string commandname, string prefix)
         {
-            if (commandname.ToLower() != "pasta")
+            var search = commandService.Search(context, commandname).Commands;
+
+            var summ = await search.GetSummaryAsync(commandService, context, prefix).ConfigureAwait(false);
+
+            if (summ == null)
             {
-                var search = commandService.Search(context, commandname).Commands;
-
-                var summ = await search.GetSummaryAsync(commandService, context, prefix).ConfigureAwait(false);
-
-                if (summ == null)
-                {
-                    return null;
-                }
-
-                var embed = EmbedExtensions.FromMessage("Help", $"Here is a command with the name **{commandname}**", Color.Teal, context);
-
-                embed.AddField("Attributes", summ);
-
-                return embed;
+                return null;
             }
-            else
-            {
-                var pasta = "Here's how to do stuff with **pasta**:\n\n" +
-                    "```cs\n" +
-                    "   give   : Give a user your pasta\n" +
-                    "   list   : List all pasta\n" +
-                    "   edit   : Change the content of your pasta\n" +
-                    "  change  : Same as above\n" +
-                    "   new    : Creates a new pasta\n" +
-                    "    +     : Same as above\n" +
-                    "   who    : Gets information about a pasta\n" +
-                    "    ?     : Same as above\n" +
-                    "  upvote  : Upvotes a pasta\n" +
-                    " downvote : Downvotes a pasta\n" +
-                    "  delete  : deletes a pasta```";
 
-                return EmbedExtensions.FromMessage("Pasta Recipe", pasta, Color.Teal, context);
-            }
+            var embed = EmbedExtensions.FromMessage("Help", $"Here is a command with the name **{commandname}**", Color.Teal, context);
+
+            embed.AddField("Attributes", summ);
+
+            return embed;
         }
 
         public static async Task<string> GetSummaryAsync(this IReadOnlyList<CommandMatch> Variants, CommandService commandService, ICommandContext context, string prefix)
@@ -54,30 +35,51 @@ namespace Skuld.Core.Extensions
             {
                 if (Variants.Any())
                 {
-                    var primary = Variants[0];
+                    StringBuilder summ = new StringBuilder();
 
-                    string summ = "**Summary:**\n" + primary.Command.Summary;
-
-                    summ += $"\n\n**Can Execute:**\n{(await primary.CheckPreconditionsAsync(context).ConfigureAwait(false)).IsSuccess}";
-
-                    summ += "\n\n**Usage:**\n";
-
-                    foreach (var att in primary.Command.Attributes)
+                    int counter = 1;
+                    foreach(var variant in Variants)
                     {
-                        if (att.GetType() == typeof(UsageAttribute))
+                        summ.Append("**Variant ").Append(counter).Append("**").AppendLine();
+
+                        if (!string.IsNullOrEmpty(variant.Command.Summary))
                         {
-                            var usage = (UsageAttribute)att;
+                            summ.AppendLine("**Summary:**")
+                                .AppendLine(variant.Command.Summary)
+                                .AppendLine();
+                        }
 
-                            summ += $"{prefix}{usage.Usage}";
+                        summ.AppendLine("**Can Execute:**")
+                            .AppendLine((await variant.CheckPreconditionsAsync(context).ConfigureAwait(false)).IsSuccess.ToString())
+                            .AppendLine();
 
-                            if (att != primary.Command.Attributes.LastOrDefault(x => x.GetType() == typeof(UsageAttribute)))
+                        summ.AppendLine("**Usage:**");
+
+                        foreach (var att in variant.Command.Attributes)
+                        {
+                            if (att.GetType() == typeof(UsageAttribute))
                             {
-                                summ += "\n";
+                                var usage = (UsageAttribute)att;
+
+                                foreach (var usg in usage.Usage)
+                                {
+                                    summ.Append(prefix)
+                                        .Append(usg.Replace("<@0>", context.User.Mention));
+
+                                    if (usg != usage.Usage.LastOrDefault())
+                                    {
+                                        summ.AppendLine();
+                                    }
+                                }
                             }
                         }
+
+                        summ.AppendLine().AppendLine();
+
+                        counter++;
                     }
 
-                    return summ;
+                    return summ.ToString();
                 }
             }
 
