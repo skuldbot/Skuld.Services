@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <AssemblyVersion>2020.2.89.0</AssemblyVersion>
-    <FileVersion>2020.2.89.0</FileVersion>
+    <AssemblyVersion>2020.3.11.0</AssemblyVersion>
+    <FileVersion>2020.3.11.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,17 +19,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Skuld.APIS\Skuld.APIS.csproj" />
-    <ProjectReference Include="..\Skuld.Core\Skuld.Core.csproj" />
-    <ProjectReference Include="..\Skuld.Models\Skuld.Core.Models.csproj" />
+    <ProjectReference Include="..\..\Skuld.APIS\Skuld.APIS.csproj" />
+    <ProjectReference Include="..\..\Skuld.Core\Skuld.Core\Skuld.Core.csproj" />
+    <ProjectReference Include="..\..\Skuld.Models\Skuld.Models\Skuld.Models.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="Discord.Addons.Interactive">
-      <HintPath>..\References\Discord.Addons.Interactive.dll</HintPath>
+      <HintPath>..\..\References\Discord.Addons.Interactive.dll</HintPath>
     </Reference>
     <Reference Include="Miki.API.Images">
-      <HintPath>..\References\Miki.API.Images.dll</HintPath>
+      <HintPath>..\..\References\Miki.API.Images.dll</HintPath>
+    </Reference>
+    <Reference Include="SteamStoreQuery">
+      <HintPath>..\..\References\SteamStoreQuery.dll</HintPath>
     </Reference>
   </ItemGroup>
 

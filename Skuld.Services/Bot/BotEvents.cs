@@ -350,7 +350,7 @@ namespace Skuld.Services.Bot
                     {
                         var channel = arg.Guild.GetTextChannel(gld.JoinChannel);
                         var message = gld.JoinMessage.ReplaceGuildEventMessage(arg as IUser, arg.Guild as SocketGuild);
-                        await BotService.DiscordClient.SendChannelAsync(channel, message);
+                        await channel.SendMessageAsync(message).ConfigureAwait(false);
                     }
                 }
             }
@@ -372,7 +372,7 @@ namespace Skuld.Services.Bot
                 {
                     var channel = arg.Guild.GetTextChannel(gld.JoinChannel);
                     var message = gld.LeaveMessage.ReplaceGuildEventMessage(arg as IUser, arg.Guild as SocketGuild);
-                    await BotService.DiscordClient.SendChannelAsync(channel, message);
+                    await channel.SendMessageAsync(message).ConfigureAwait(false);
                 }
             }
 

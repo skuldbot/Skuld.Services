@@ -6,6 +6,8 @@ using Skuld.Core.Extensions.Formatting;
 using Skuld.Core.Extensions.Verification;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
+using Skuld.Services.Accounts.Banking.Models;
+using Skuld.Services.Banking;
 using StatsdClient;
 using System;
 using System.Collections.Generic;
@@ -192,7 +194,11 @@ namespace Skuld.Services.Extensions
             {
                 if (target.LastDaily == 0 || target.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
-                    target.Money = target.Money.Add(target.GetDailyAmount(config));
+                    TransactionService.DoTransaction(new TransactionStruct
+                    {
+                        Amount = target.GetDailyAmount(config),
+                        Receiver = target
+                    });
 
                     target.LastDaily = DateTime.UtcNow.ToEpoch();
                     wasSuccessful = true;
@@ -202,7 +208,11 @@ namespace Skuld.Services.Extensions
             {
                 if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
-                    target.Money = target.Money.Add(donor.GetDailyAmount(config));
+                    TransactionService.DoTransaction(new TransactionStruct
+                    {
+                        Amount = donor.GetDailyAmount(config),
+                        Receiver = target
+                    });
 
                     donor.LastDaily = DateTime.UtcNow.ToEpoch();
                     wasSuccessful = true;

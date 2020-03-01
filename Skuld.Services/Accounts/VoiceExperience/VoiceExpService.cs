@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Discord.WebSocket;
-using Skuld.Bot.Extensions;
 using Skuld.Core.Extensions;
 using Skuld.Core.Models;
 using Skuld.Services.Extensions;
