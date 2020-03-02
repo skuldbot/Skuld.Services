@@ -17,6 +17,7 @@ using Skuld.Discord.TypeReaders;
 using Skuld.Services.Bot.Discord;
 using Skuld.Services.Discord.Models;
 using Skuld.Services.Globalization;
+using Skuld.Services.Reminders;
 using Skuld.Services.VoiceExperience;
 using Skuld.Services.WebSocket;
 using StatsdClient;
@@ -48,9 +49,6 @@ namespace Skuld.Services.Bot
         private static VoiceExpService voiceService;
         private static Assembly PrimaryAssembly;
 
-        private static List<ulong> UserIDs;
-        public static int Users { get => UserIDs.Count(); }
-
         public static async Task ConfigureBotAsync(SkuldConfig inConfig, DiscordSocketConfig config, CommandServiceConfig cmdConfig, MessageServiceConfig msgConfig, Assembly primaryAssembly)
         {
             Configuration = inConfig;
@@ -60,8 +58,6 @@ namespace Skuld.Services.Bot
             MessageServiceConfig = msgConfig;
 
             PrimaryAssembly = primaryAssembly;
-
-            UserIDs = new List<ulong>();
 
             DiscordClient = new DiscordShardedClient(config);
 
@@ -76,6 +72,8 @@ namespace Skuld.Services.Bot
 
         public static async Task StartBotAsync()
         {
+            BackgroundTasks();
+
             BotEvents.RegisterEvents();
 
             await DiscordClient.LoginAsync(TokenType.Bot, Configuration.DiscordToken).ConfigureAwait(false);
@@ -211,14 +209,14 @@ namespace Skuld.Services.Bot
 
             APIS.SearchClient.Configure(Configuration.GoogleAPI, Configuration.GoogleCx, Configuration.ImgurClientID, Configuration.ImgurClientSecret);
 
-            ConfigureStatsCollector(Configuration);
+            ConfigureStatsCollector();
         }
 
         #endregion Services
 
         #region Statistics
 
-        private static void ConfigureStatsCollector(SkuldConfig Configuration)
+        private static void ConfigureStatsCollector()
         {
             DogStatsd.Configure(new StatsdConfig
             {
@@ -240,7 +238,6 @@ namespace Skuld.Services.Bot
                 {
                     DogStatsd.Gauge("guilds.total", DiscordClient.Guilds.Count);
                 }
-                DogStatsd.Gauge("users.total", Users);
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }
         }
@@ -255,37 +252,12 @@ namespace Skuld.Services.Bot
                 }
             ).Start();
             new Thread(
-                async () =>
+                () =>
                 {
                     Thread.CurrentThread.IsBackground = true;
-                    await FeedUsersAsync().ConfigureAwait(false);
+                    ReminderService.Run();
                 }
             ).Start();
-        }
-
-        private static async Task FeedUsersAsync()
-        {
-            while (true)
-            {
-                if (DiscordClient.Shards.All(x => x.ConnectionState == ConnectionState.Connected))
-                {
-                    await DiscordClient.DownloadUsersAsync(DiscordClient.Guilds);
-                    foreach (var gld in DiscordClient.Guilds)
-                    {
-                        var humans = gld.Users.Where(x => x.IsBot == false);
-                        foreach (var human in humans)
-                        {
-                            if (!UserIDs.Contains(human.Id))
-                                UserIDs.Add(human.Id);
-                        }
-                    }
-                    await Task.Delay(TimeSpan.FromMinutes(15));
-                }
-                else
-                {
-                    await Task.Delay(TimeSpan.FromMinutes(1));
-                }
-            }
         }
 
         #endregion Statistics

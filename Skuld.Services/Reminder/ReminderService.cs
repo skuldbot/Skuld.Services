@@ -1,6 +1,8 @@
 ﻿using Discord;
 using Skuld.Core.Extensions;
+using Skuld.Core.Extensions.Formatting;
 using Skuld.Core.Models;
+using Skuld.Services.Bot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,34 +13,47 @@ namespace Skuld.Services.Reminders
     {
         private static async Task ExecuteAsync()
         {
+            using var Database = new SkuldDbContextFactory().CreateDbContext();
+
             while (true)
             {
                 var currentTime = DateTime.UtcNow.ToEpoch();
 
-                using var Database = new SkuldDbContextFactory().CreateDbContext();
-
-                if(Database.Reminders.Any())
+                if (BotService.DiscordClient.Shards.All(x=>x.ConnectionState == ConnectionState.Connected))
                 {
-                    bool hasChanged = false;
-
-                    Database.Reminders.ToList().ForEach(async reminder =>
+                    if (Database.Reminders.Any())
                     {
-                        if (reminder.Timeout <= currentTime)
+                        bool hasChanged = false;
+
+                        foreach(var reminder in Database.Reminders.ToList())
                         {
-                            await
-                                (await Bot.BotService.DiscordClient.GetDMChannelAsync(reminder.UserId) ?? Bot.BotService.DiscordClient.GetChannel(reminder.ChannelId) as IMessageChannel)
-                                .SendMessageAsync($"On {reminder.Created.ToString("yyyy'/'MM'/'dd HH:mm:ss")} you asked me to remind you: {reminder.Content}\n\n<{reminder.MessageLink}>")
-                            .ConfigureAwait(false);
+                            if (reminder.Timeout <= currentTime)
+                            {
+                                await
+                                    (await BotService.DiscordClient.GetUser(reminder.UserId).GetOrCreateDMChannelAsync() ?? BotService.DiscordClient.GetChannel(reminder.ChannelId) as IMessageChannel)
+                                    .SendMessageAsync($"On {reminder.Created.FromEpoch().ToDMYString()} you asked me to remind you: {reminder.Content}\n\n<{reminder.MessageLink}>")
+                                .ConfigureAwait(false);
 
-                            Database.Reminders.Remove(reminder);
+                                if(!reminder.Repeats)
+                                {
+                                    Database.Reminders.Remove(reminder);
+                                }
+                                else
+                                {
+                                    var diff = reminder.Timeout - reminder.Created;
 
-                            hasChanged = true;
+                                    reminder.Timeout += diff;
+                                }
+
+                                hasChanged = true;
+                            }
                         }
-                    });
 
-                    if(hasChanged)
-                    {
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
+                        if (hasChanged)
+                        {
+                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                            hasChanged = false;
+                        }
                     }
                 }
 
