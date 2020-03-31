@@ -8,13 +8,13 @@ namespace Skuld.Services.Banking
 {
     public static class TransactionService
     {
-        public static EventResult DoTransaction(TransactionStruct transaction)
+        public static EventResult<bool> DoTransaction(TransactionStruct transaction)
         {
             if (transaction.Sender != null)
             {
                 if (transaction.Sender.Money < transaction.Amount)
                 {
-                    return EventResult.FromFailureException("sender doesn't have enough money", new TransactionException("sender doesn't have enough money"));
+                    return EventResult<bool>.FromFailureException("sender doesn't have enough money", new TransactionException("sender doesn't have enough money"));
                 }
 
                 transaction.Sender.Money = transaction.Sender.Money.Subtract(transaction.Amount);
@@ -29,7 +29,7 @@ namespace Skuld.Services.Banking
 
             DogStatsd.Increment("economy.processed", (int)transaction.Amount);
 
-            return EventResult.FromSuccess();
+            return EventResult<bool>.FromSuccess(true);
         }
     }
 }

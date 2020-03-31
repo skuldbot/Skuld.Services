@@ -14,7 +14,7 @@ namespace Skuld.Discord.TypeReaders
             }
             else
             {
-                return Task.FromResult(TypeReaderResult.FromError(CommandError.ParseFailed, $"`{input}` is not a valid url."));
+                return Task.FromResult(TypeReaderResult.FromError(CommandError.ParseFailed, $"`{input}` is not a valid url"));
             }
         }
     }

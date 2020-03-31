@@ -1,4 +1,4 @@
-﻿using Skuld.Core.Models;
+﻿using Skuld.Models;
 
 namespace Skuld.Services.Accounts.Banking.Models
 {

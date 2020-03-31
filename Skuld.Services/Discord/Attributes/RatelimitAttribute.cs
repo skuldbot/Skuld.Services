@@ -92,7 +92,7 @@ namespace Skuld.Services.Discord.Attributes
             }
             else
             {
-                return Task.FromResult(PreconditionResult.FromError("You are currently in Timeout."));
+                return Task.FromResult(PreconditionResult.FromError("You are currently in Timeout"));
             }
         }
 

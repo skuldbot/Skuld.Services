@@ -1,7 +1,7 @@
-﻿using Discord;
-using Discord.WebSocket;
+﻿using Discord.WebSocket;
 using Skuld.Core.Extensions;
-using Skuld.Core.Models;
+using Skuld.Models;
+using Skuld.Services.Accounts.Experience;
 using Skuld.Services.Extensions;
 using Skuld.Services.VoiceExperience.Models;
 using System;
@@ -94,46 +94,7 @@ namespace Skuld.Services.VoiceExperience
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
 
                 var skUser = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
-                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild, null, async (usr, gld, dbGuild, umsg, level) =>
-                {
-                    var msg = dbGuild.LevelUpMessage;
-                    if (msg != null)
-                        msg = msg
-                            .Replace("-m", user.Mention)
-                            .Replace("-u", user.Username)
-                            .Replace("-l", level.ToFormattedString());
-                    else
-                        msg = $"Congratulations {user.Mention}!! You're now level **{level}**";
-
-                    switch (dbGuild.LevelNotification)
-                    {
-                        case LevelNotification.Channel:
-                            {
-                                if (dbGuild.LevelUpChannel != 0)
-                                {
-                                    msg += $"\n**FROM VOICE**";
-
-                                    await (await gld.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false)).SendMessageAsync(msg).ConfigureAwait(false);
-                                }
-                                else
-                                {
-                                    await usr.SendMessageAsync(msg).ConfigureAwait(false);
-                                }
-                            }
-                            break;
-
-                        case LevelNotification.DM:
-                            {
-                                msg += $"\n**FROM VOICE**";
-                                await usr.SendMessageAsync(msg).ConfigureAwait(false);
-                            }
-                            break;
-
-                        case LevelNotification.None:
-                        default:
-                            break;
-                    }
-                }).ConfigureAwait(false);
+                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild, null, ExperienceService.VoiceAction).ConfigureAwait(false);
             }
         }
 
@@ -152,11 +113,19 @@ namespace Skuld.Services.VoiceExperience
 
             if (feats != null && feats.Experience)
             {
-                if (previousState.VoiceChannel == null && currentState.VoiceChannel != null) // Connect
+                if (previousState.VoiceChannel == null && currentState.VoiceChannel != null && 
+                    !currentState.IsMuted && !currentState.IsDeafened &&
+                    !currentState.IsSelfMuted && !currentState.IsSelfDeafened) // Connect
                 {
                     Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
                     return;
                 }
+                else if (previousState.VoiceChannel == null && currentState.VoiceChannel != null)
+                {
+                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
+                    return;
+                }
+
                 if (previousState.VoiceChannel != null && currentState.VoiceChannel == null) // Disconnect
                 {
                     if (Targets.Any(x => x.User.Id == user.Id))
@@ -166,22 +135,19 @@ namespace Skuld.Services.VoiceExperience
                     return;
                 }
 
-                if (!difference.DidMute)
-                {
-                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
-                }
-                else
+                if (currentState.VoiceChannel == guild.AFKChannel)
                 {
                     Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
+                    return;
                 }
 
-                if (!difference.DidDeafen)
+                if (difference.DidMute || difference.DidDeafen)
                 {
-                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
+                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
                 }
                 else
                 {
-                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
+                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
                 }
             }
         }

@@ -22,7 +22,7 @@ namespace Skuld.Services.Discord.Preconditions
             if (perm)
             { return Task.FromResult(PreconditionResult.FromSuccess()); }
             else
-            { return Task.FromResult(PreconditionResult.FromError("Insufficient permissions.")); }
+            { return Task.FromResult(PreconditionResult.FromError("Insufficient permissions")); }
         }
 
         public bool GetPermission(ICommandContext c)

@@ -1,15 +1,17 @@
 ﻿using Discord;
 using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Formatting;
-using Skuld.Core.Models;
+using Skuld.Core.Utilities;
+using Skuld.Models;
 using Skuld.Services.Bot;
+using StatsdClient;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace Skuld.Services.Reminders
 {
-    public class ReminderService
+    public static class ReminderService
     {
         private static async Task ExecuteAsync()
         {
@@ -29,20 +31,31 @@ namespace Skuld.Services.Reminders
                         {
                             if (reminder.Timeout <= currentTime)
                             {
-                                await
-                                    (await BotService.DiscordClient.GetUser(reminder.UserId).GetOrCreateDMChannelAsync() ?? BotService.DiscordClient.GetChannel(reminder.ChannelId) as IMessageChannel)
-                                    .SendMessageAsync($"On {reminder.Created.FromEpoch().ToDMYString()} you asked me to remind you: {reminder.Content}\n\n<{reminder.MessageLink}>")
-                                .ConfigureAwait(false);
-
-                                if(!reminder.Repeats)
+                                try
                                 {
-                                    Database.Reminders.Remove(reminder);
+                                    await
+                                        (await BotService.DiscordClient.GetUser(reminder.UserId).GetOrCreateDMChannelAsync().ConfigureAwait(false))
+                                        .SendMessageAsync($"On {reminder.Created.FromEpoch().ToDMYString()} you asked me to remind you: {reminder.Content}\n\n<{reminder.MessageLink}>")
+                                    .ConfigureAwait(false);
+
+                                    if (!reminder.Repeats)
+                                    {
+                                        Database.Reminders.Remove(reminder);
+                                    }
+                                    else
+                                    {
+                                        var diff = reminder.Timeout - reminder.Created;
+
+                                        reminder.Timeout += diff;
+                                        DogStatsd.Increment("reminders.repeat");
+                                    }
+                                    DogStatsd.Increment("reminders.processed");
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    var diff = reminder.Timeout - reminder.Created;
-
-                                    reminder.Timeout += diff;
+                                    Log.Critical("Reminders", ex.Message, ex);
+                                    DogStatsd.Increment("reminders.error");
+                                    Database.Reminders.RemoveRange(Database.Reminders.ToList().Where(x => x.UserId == reminder.UserId));
                                 }
 
                                 hasChanged = true;

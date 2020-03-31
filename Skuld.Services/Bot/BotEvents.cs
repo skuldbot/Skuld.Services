@@ -4,9 +4,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Skuld.Core;
 using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Verification;
-using Skuld.Core.Models;
 using Skuld.Core.Utilities;
+using Skuld.Models;
 using Skuld.Services.BotListing;
+using Skuld.Services.Guilds.Pinning;
+using Skuld.Services.Guilds.Starboard;
 using StatsdClient;
 using System;
 using System.Collections.Generic;
@@ -38,6 +40,8 @@ namespace Skuld.Services.Bot
             foreach (var shard in BotService.DiscordClient.Shards)
             {
                 shard.MessageReceived -= BotMessaging.HandleMessageAsync;
+                shard.MessagesBulkDeleted -= Shard_MessagesBulkDeleted;
+                shard.MessageDeleted -= Shard_MessageDeleted;
                 shard.JoinedGuild -= Bot_JoinedGuild;
                 shard.RoleDeleted -= Bot_RoleDeleted;
                 shard.GuildMemberUpdated -= Bot_GuildMemberUpdated;
@@ -87,180 +91,213 @@ namespace Skuld.Services.Bot
             return Task.CompletedTask;
         }
 
+        private static async Task Shard_MessageDeleted(Cacheable<IMessage, ulong> arg1, ISocketMessageChannel arg2)
+        {
+            using var Database = new SkuldDbContextFactory().CreateDbContext();
+
+            if (arg2 is IGuildChannel guildChannel)
+            {
+                var gld = await Database.GetOrInsertGuildAsync(guildChannel.Guild).ConfigureAwait(false);
+                var feats = Database.Features.FirstOrDefault(x => x.Id == guildChannel.GuildId);
+
+                if (feats.Starboard && gld.StarDeleteIfSourceDelete)
+                {
+                    var message = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
+
+                    if (Database.StarboardVotes.Any(x => x.MessageId == message.Id))
+                    {
+                        var vote = Database.StarboardVotes.FirstOrDefault(x => x.MessageId == message.Id);
+
+                        Database.StarboardVotes.RemoveRange(Database.StarboardVotes.ToList().Where(x => x.MessageId == message.Id));
+
+                        var chan = await guildChannel.Guild.GetTextChannelAsync(gld.StarboardChannel).ConfigureAwait(false);
+                        var starMessage = await chan.GetMessageAsync(vote.StarboardMessageId).ConfigureAwait(false);
+
+                        await starMessage.DeleteAsync().ConfigureAwait(false);
+
+                        await Database.SaveChangesAsync().ConfigureAwait(false);
+                    }
+                }
+            }
+        }
+
+        private static async Task Shard_MessagesBulkDeleted(IReadOnlyCollection<Cacheable<IMessage, ulong>> arg1, ISocketMessageChannel arg2)
+        {
+            using var Database = new SkuldDbContextFactory().CreateDbContext();
+            
+            if(arg2 is IGuildChannel guildChannel)
+            {
+                var gld = await Database.GetOrInsertGuildAsync(guildChannel.Guild).ConfigureAwait(false);
+                var feats = Database.Features.FirstOrDefault(x => x.Id == guildChannel.GuildId);
+
+                if(feats.Starboard && gld.StarDeleteIfSourceDelete)
+                {
+                    foreach (var msg in arg1)
+                    {
+                        var message = await msg.GetOrDownloadAsync().ConfigureAwait(false);
+                        if (Database.StarboardVotes.Any(x => x.MessageId == message.Id))
+                        {
+                            var vote = Database.StarboardVotes.FirstOrDefault(x => x.MessageId == message.Id);
+
+                            Database.StarboardVotes.RemoveRange(Database.StarboardVotes.ToList().Where(x => x.MessageId == message.Id));
+
+                            var chan = await guildChannel.Guild.GetTextChannelAsync(gld.StarboardChannel).ConfigureAwait(false);
+                            var starMessage = await chan.GetMessageAsync(vote.StarboardMessageId).ConfigureAwait(false);
+
+                            await starMessage.DeleteAsync().ConfigureAwait(false);
+
+                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+        }
+
         #region Reactions
 
         private static async Task Bot_ReactionAdded(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2, SocketReaction arg3)
         {
             DogStatsd.Increment("messages.reactions.added");
 
-            using var Database = new SkuldDbContextFactory().CreateDbContext();
+            IUser usr;
 
-            User user = null;
-
-            if (arg3.User.IsSpecified)
+            if (!arg3.User.IsSpecified) return;
+            else
             {
-                var usr = arg3.User.Value;
-
-                if (usr.IsBot || usr.IsWebhook) return;
-                user = await Database.GetOrInsertUserAsync(arg3.User.Value).ConfigureAwait(false);
+                usr = arg3.User.Value;
             }
 
-            if (arg2 is IGuildChannel)
+            if (usr.IsBot || usr.IsWebhook) return;
+
+            if (arg2 is IGuildChannel && arg1.HasValue)
             {
-                try
-                {
-                    var guild = BotService.DiscordClient.Guilds.FirstOrDefault(x => x.TextChannels.FirstOrDefault(z => z.Id == arg2.Id) != null);
+                var message = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
 
-                    if (guild != null)
-                    {
-                        var feats = Database.Features.FirstOrDefault(x => x.Id == guild.Id);
+                await PinningService.ExecuteAdditionAsync(message, arg2, arg3).ConfigureAwait(false);
 
-                        if (feats.Pinning)
-                        {
-                            var pins = await arg2.GetPinnedMessagesAsync();
-
-                            if (pins.Count < 50)
-                            {
-                                var dldedmsg = await arg1.GetOrDownloadAsync();
-
-                                int pinboardThreshold = BotService.Configuration.PinboardThreshold;
-                                int pinboardReactions = dldedmsg.Reactions.FirstOrDefault(x => x.Key.Name == "📌").Value.ReactionCount;
-
-                                if (pinboardReactions >= pinboardThreshold)
-                                {
-                                    var now = dldedmsg.CreatedAt;
-                                    var dt = DateTime.UtcNow.AddDays(-BotService.Configuration.PinboardDateLimit);
-                                    if ((now - dt).TotalDays > 0)
-                                    {
-                                        if (!dldedmsg.IsPinned)
-                                        {
-                                            await dldedmsg.PinAsync();
-
-                                            Log.Info("PinBoard", "Message reached threshold, pinned a message");
-                                        }
-                                    }
-                                }
-
-                                await dldedmsg.Channel.SendMessageAsync(
-                                    guild.Owner.Mention,
-                                    false,
-                                    new EmbedBuilder()
-                                        .AddAuthor(BotService.DiscordClient)
-                                        .WithDescription($"Can't pin a message in this channel, please clean out some pins.")
-                                        .WithColor(Color.Red)
-                                        .Build()
-                                ).ConfigureAwait(false);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log.Critical(Key, ex.Message, ex);
-                }
+                await StarboardService.ExecuteAdditionAsync(message, arg2, arg3).ConfigureAwait(false);
             }
 
-            if (arg2.Id == BotService.Configuration.IssueChannel && user.Flags.IsBitSet(DiscordUtilities.BotCreator))
+            if (arg2.Id == BotService.Configuration.IssueChannel)
             {
-                try
+                using var Database = new SkuldDbContextFactory().CreateDbContext();
+
+                var user = await Database.InsertOrGetUserAsync(usr).ConfigureAwait(false);
+
+                if (user.Flags.IsBitSet(DiscordUtilities.BotCreator))
                 {
-                    if (arg1.HasValue)
+                    try
                     {
-                        var msg = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
-
-                        var message = Database.Issues.FirstOrDefault(x => x.IssueChannelMessageId == arg1.Id);
-                        if (message != null)
+                        if (arg1.HasValue)
                         {
-                            var emote = arg3.Emote as Emote;
+                            var msg = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
 
-                            if (emote.Id == DiscordUtilities.Tick_Emote.Id)
+                            var message = Database.Issues.FirstOrDefault(x => x.IssueChannelMessageId == arg1.Id);
+                            if (message != null)
                             {
-                                if (!message.HasSent)
+                                var emote = arg3.Emote as Emote;
+
+                                if (emote.Id == DiscordUtilities.Tick_Emote.Id)
                                 {
-                                    try
+                                    if (!message.HasSent)
                                     {
-                                        var newissue = new Octokit.NewIssue(message.Title)
-                                        {
-                                            Body = message.Body
-                                        };
-
-                                        newissue.Assignees.Add("exsersewo");
-                                        newissue.Labels.Add("From Command");
-
-                                        var issue = await BotService.Services.GetRequiredService<Octokit.GitHubClient>().Issue.Create(BotService.Configuration.GithubRepository, newissue).ConfigureAwait(false);
-
                                         try
                                         {
-                                            await BotService.DiscordClient.GetUser(message.SubmitterId).SendMessageAsync("", false,
-                                                new EmbedBuilder()
-                                                    .WithTitle("Good News!")
-                                                    .AddAuthor(BotService.DiscordClient)
-                                                    .WithDescription($"Your issue:\n\"[{newissue.Title}]({issue.HtmlUrl})\"\n\nhas been accepted")
-                                                    .WithColor(EmbedExtensions.RandomEmbedColor())
-                                                .Build()
-                                            );
+                                            var newissue = new Octokit.NewIssue(message.Title)
+                                            {
+                                                Body = message.Body
+                                            };
+
+                                            newissue.Assignees.Add("exsersewo");
+                                            newissue.Labels.Add("From Command");
+
+                                            var issue = await BotService.Services.GetRequiredService<Octokit.GitHubClient>().Issue.Create(BotService.Configuration.GithubRepository, newissue).ConfigureAwait(false);
+
+                                            try
+                                            {
+                                                await BotService.DiscordClient.GetUser(message.SubmitterId).SendMessageAsync("", false,
+                                                    new EmbedBuilder()
+                                                        .WithTitle("Good News!")
+                                                        .AddAuthor(BotService.DiscordClient)
+                                                        .WithDescription($"Your issue:\n\"[{newissue.Title}]({issue.HtmlUrl})\"\n\nhas been accepted")
+                                                        .WithColor(EmbedExtensions.RandomEmbedColor())
+                                                    .Build()
+                                                );
+                                            }
+                                            catch { }
+
+                                            await msg.ModifyAsync(x =>
+                                            {
+                                                x.Embed = msg.Embeds.ElementAt(0)
+                                                .ToEmbedBuilder()
+                                                .AddField("Sent", DiscordUtilities.Tick_Emote.ToString())
+                                                .Build();
+                                            }).ConfigureAwait(false);
+
+                                            message.HasSent = true;
+
+                                            await Database.SaveChangesAsync().ConfigureAwait(false);
                                         }
-                                        catch { }
-
-                                        await msg.ModifyAsync(x =>
+                                        catch (Exception ex)
                                         {
-                                            x.Embed = msg.Embeds.ElementAt(0)
-                                            .ToEmbedBuilder()
-                                            .AddField("Sent", DiscordUtilities.Tick_Emote.ToString())
-                                            .Build();
-                                        }).ConfigureAwait(false);
-
-                                        message.HasSent = true;
-
-                                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Log.Error("Git-" + SkuldAppContext.GetCaller(), ex.Message, ex);
+                                            Log.Error("Git-" + SkuldAppContext.GetCaller(), ex.Message, ex);
+                                        }
                                     }
                                 }
-                            }
-                            else if (emote.Id == DiscordUtilities.Cross_Emote.Id)
-                            {
-                                Database.Issues.Remove(message);
-
-                                await Database.SaveChangesAsync().ConfigureAwait(false);
-
-                                await msg.DeleteAsync().ConfigureAwait(false);
-
-                                try
+                                else if (emote.Id == DiscordUtilities.Cross_Emote.Id)
                                 {
-                                    await BotService.DiscordClient.GetUser(message.SubmitterId).SendMessageAsync("", false,
-                                        new EmbedBuilder()
-                                            .WithTitle("Bad News")
-                                            .AddAuthor(BotService.DiscordClient)
-                                            .WithDescription($"Your issue:\n\"{message.Title}\"\n\nhas been declined. If you would like to know why, send: {arg3.User.Value.FullName()} a message")
-                                            .WithColor(EmbedExtensions.RandomEmbedColor())
-                                        .Build()
-                                    );
+                                    Database.Issues.Remove(message);
+
+                                    await Database.SaveChangesAsync().ConfigureAwait(false);
+
+                                    await msg.DeleteAsync().ConfigureAwait(false);
+
+                                    try
+                                    {
+                                        await BotService.DiscordClient.GetUser(message.SubmitterId).SendMessageAsync("", false,
+                                            new EmbedBuilder()
+                                                .WithTitle("Bad News")
+                                                .AddAuthor(BotService.DiscordClient)
+                                                .WithDescription($"Your issue:\n\"{message.Title}\"\n\nhas been declined. If you would like to know why, send: {arg3.User.Value.FullName()} a message")
+                                                .WithColor(EmbedExtensions.RandomEmbedColor())
+                                            .Build()
+                                        );
+                                    }
+                                    catch { }
                                 }
-                                catch { }
                             }
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Log.Critical(Key, ex.Message, ex);
+                    catch (Exception ex)
+                    {
+                        Log.Critical(Key, ex.Message, ex);
+                    }
                 }
             }
         }
 
-        private static Task Bot_ReactionsCleared(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2)
+        private static async Task Bot_ReactionsCleared(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2)
         {
             DogStatsd.Increment("messages.reactions.cleared");
-            return Task.CompletedTask;
         }
 
-        private static Task Bot_ReactionRemoved(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2, SocketReaction arg3)
+        private static async Task Bot_ReactionRemoved(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2, SocketReaction arg3)
         {
             DogStatsd.Increment("messages.reactions.removed");
-            return Task.CompletedTask;
+
+            IUser usr;
+
+            if (!arg3.User.IsSpecified) return;
+            else
+            {
+                usr = arg3.User.Value;
+            }
+
+            if (usr.IsBot || usr.IsWebhook) return;
+
+            var message = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
+
+            await StarboardService.ExecuteRemovalAsync(message, usr.Id).ConfigureAwait(false);
         }
 
         #endregion Reactions
@@ -272,6 +309,8 @@ namespace Skuld.Services.Bot
             if (!ShardsReady.Contains(arg.ShardId))
             {
                 arg.MessageReceived += BotMessaging.HandleMessageAsync;
+                arg.MessageDeleted += Shard_MessageDeleted;
+                arg.MessagesBulkDeleted += Shard_MessagesBulkDeleted;
                 arg.JoinedGuild += Bot_JoinedGuild;
                 arg.RoleDeleted += Bot_RoleDeleted;
                 arg.GuildMemberUpdated += Bot_GuildMemberUpdated;

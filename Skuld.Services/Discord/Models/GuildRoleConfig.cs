@@ -10,12 +10,14 @@ namespace Skuld.Services.Discord.Models
         public ulong Cost;
         public ulong RequireLevel;
         public IRole RequiredRole;
+        public bool Automatic;
 
         public GuildRoleConfig()
         {
             Cost = 0;
             RequireLevel = 0;
             RequiredRole = null;
+            Automatic = false;
         }
 
         public static bool FromString(string input, ICommandContext context, out GuildRoleConfig roleConfig)
@@ -122,6 +124,22 @@ namespace Skuld.Services.Discord.Models
                 roleConfig.RequiredRole = null;
             }
 
+            if (inputsplit.Where(x => x.StartsWith("automatic=")).Any())
+            {
+                if (bool.TryParse(inputsplit.LastOrDefault(x => x.StartsWith("automatic=")).Replace("automatic=", ""), out bool result))
+                {
+                    roleConfig.Automatic = result;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                roleConfig.Automatic = false;
+            }
+
             return true;
         }
 
@@ -135,6 +153,8 @@ namespace Skuld.Services.Discord.Models
                 message.Append($"require-level={RequireLevel} ");
             if (RequiredRole != null)
                 message.Append($"require-role={RequiredRole.Id} ");
+
+            message.Append($"automatic={Automatic} ");
 
             return message.ToString()[0..^1];
         }

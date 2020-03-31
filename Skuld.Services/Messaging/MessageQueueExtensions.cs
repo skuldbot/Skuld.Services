@@ -9,9 +9,10 @@ namespace Skuld.Services.Messaging.Extensions
 {
     public static class MessageQueueExtensions
     {
-        public static async Task<IUserMessage> QueueMessageAsync(this string content,
+        #region String
+        private static async Task<IUserMessage> SendMessageAsync(string content,
                                              ICommandContext context,
-                                             Stream imageStream = null,
+                                             Stream fileStream = null,
                                              string fileName = "image.png",
                                              Models.MessageType type = Models.MessageType.Standard,
                                              Exception exception = null,
@@ -37,20 +38,20 @@ namespace Skuld.Services.Messaging.Extensions
 
                 case Models.MessageType.File:
                     {
-                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, imageStream, fileName).ConfigureAwait(false);
+                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, fileStream, fileName).ConfigureAwait(false);
 
-                        if (imageStream != null)
-                            await imageStream.DisposeAsync().ConfigureAwait(false);
+                        if (fileStream != null)
+                            await fileStream.DisposeAsync().ConfigureAwait(false);
 
                         return msg;
                     }
 
                 case Models.MessageType.MentionFile:
                     {
-                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, imageStream, fileName).ConfigureAwait(false);
+                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, fileStream, fileName).ConfigureAwait(false);
 
-                        if (imageStream != null)
-                            await imageStream.DisposeAsync().ConfigureAwait(false);
+                        if (fileStream != null)
+                            await fileStream.DisposeAsync().ConfigureAwait(false);
 
                         return msg;
                     }
@@ -59,19 +60,30 @@ namespace Skuld.Services.Messaging.Extensions
             return null;
         }
 
-        public static async Task<IUserMessage> QueueMessageAsync(this StringBuilder content,
+        public static async Task<IUserMessage> QueueMessageAsync(this string content,
                                              ICommandContext context,
-                                             Stream imageStream = null,
+                                             Stream fileStream = null,
                                              string fileName = "image.png",
                                              Models.MessageType type = Models.MessageType.Standard,
                                              Exception exception = null,
                                              double timeout = 0.0)
-            => await content.ToString().QueueMessageAsync(context, imageStream, fileName, type, exception, timeout);
+            => await SendMessageAsync(content, context, fileStream, fileName, type, exception, timeout).ConfigureAwait(false);
 
-        public static async Task<IUserMessage> QueueMessageAsync(this Embed embed,
+        public static async Task<IUserMessage> QueueMessageAsync(this StringBuilder content,
+                                             ICommandContext context,
+                                             Stream fileStream = null,
+                                             string fileName = "image.png",
+                                             Models.MessageType type = Models.MessageType.Standard,
+                                             Exception exception = null,
+                                             double timeout = 0.0)
+            => await content.ToString().QueueMessageAsync(context, fileStream, fileName, type, exception, timeout).ConfigureAwait(false);
+        #endregion String
+
+        #region Embeds
+        private static async Task<IUserMessage> SendMessageAsync(Embed embed,
                                              ICommandContext context,
                                              string content = "",
-                                             Stream imageStream = null,
+                                             Stream fileStream = null,
                                              string fileName = "image.png",
                                              Models.MessageType type = Models.MessageType.Standard,
                                              Exception exception = null,
@@ -97,20 +109,20 @@ namespace Skuld.Services.Messaging.Extensions
 
                 case Models.MessageType.File:
                     {
-                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, imageStream, fileName, embed).ConfigureAwait(false);
+                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, fileStream, fileName, embed).ConfigureAwait(false);
 
-                        if (imageStream != null)
-                            await imageStream.DisposeAsync().ConfigureAwait(false);
+                        if (fileStream != null)
+                            await fileStream.DisposeAsync().ConfigureAwait(false);
 
                         return msg;
                     }
 
                 case Models.MessageType.MentionFile:
                     {
-                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, imageStream, fileName, embed).ConfigureAwait(false);
+                        var msg = await MessageSender.ReplyWithFileAsync(context.Channel, content, fileStream, fileName, embed).ConfigureAwait(false);
 
-                        if (imageStream != null)
-                            await imageStream.DisposeAsync().ConfigureAwait(false);
+                        if (fileStream != null)
+                            await fileStream.DisposeAsync().ConfigureAwait(false);
 
                         return msg;
                     }
@@ -119,14 +131,42 @@ namespace Skuld.Services.Messaging.Extensions
             return null;
         }
 
-        public static async Task<IUserMessage> QueueMessageAsync(this EmbedBuilder embed,
+        public static async Task<IUserMessage> QueueMessageAsync(this Embed embed,
                                              ICommandContext context,
                                              string content = "",
-                                             Stream imageStream = null,
+                                             Stream fileStream = null,
                                              string fileName = "image.png",
                                              Models.MessageType type = Models.MessageType.Standard,
                                              Exception exception = null,
                                              double timeout = 0.0)
-            => await embed.Build().QueueMessageAsync(context, content, imageStream, fileName, type, exception, timeout);
+            => await SendMessageAsync(embed, context, content, fileStream, fileName, type, exception, timeout).ConfigureAwait(false);
+        
+
+        public static async Task<IUserMessage> QueueMessageAsync(this EmbedBuilder embed,
+                                             ICommandContext context,
+                                             string content = "",
+                                             Stream fileStream = null,
+                                             string fileName = "image.png",
+                                             Models.MessageType type = Models.MessageType.Standard,
+                                             Exception exception = null,
+                                             double timeout = 0.0)
+            => await embed.Build().QueueMessageAsync(context, content, fileStream, fileName, type, exception, timeout).ConfigureAwait(false);
+        #endregion Embeds
+
+        public static async Task<IUserMessage> QueueMessageAsync(this object obj,
+                                             ICommandContext context,
+                                             Stream fileStream = null,
+                                             string fileName = "image.png",
+                                             Models.MessageType type = Models.MessageType.Standard,
+                                             Exception exception = null,
+                                             double timeout = 0.0)
+            => obj switch
+            {
+                EmbedBuilder content => await SendMessageAsync(content.Build(), context, "", fileStream, fileName, type, exception, timeout).ConfigureAwait(false),
+                Embed content => await SendMessageAsync(content, context, "", fileStream, fileName, type, exception, timeout).ConfigureAwait(false),
+                string content => await SendMessageAsync(content, context, fileStream, fileName, type, exception, timeout).ConfigureAwait(false),
+                StringBuilder content => await SendMessageAsync(content.ToString(), context, fileStream, fileName, type, exception, timeout).ConfigureAwait(false),
+                _ => throw new NotSupportedException($"Can't support type: {obj.GetType()}")
+            };
     }
 }

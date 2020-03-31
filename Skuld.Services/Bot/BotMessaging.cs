@@ -3,8 +3,8 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Verification;
-using Skuld.Core.Models;
 using Skuld.Core.Utilities;
+using Skuld.Models;
 using Skuld.Services.Accounts.Experience;
 using Skuld.Services.CustomCommands;
 using Skuld.Services.Messaging.Extensions;
@@ -240,7 +240,7 @@ namespace Skuld.Services.Bot
                     GuildFeatures features = Database.Features.FirstOrDefault(x => x.Id == sguild.Id);
                     if (features.Experience)
                     {
-                        _ = ExperienceService.HandleExperienceAsync(message, message.Author, ((message.Channel as ITextChannel).Guild), sguild, message.Channel);
+                        _ = ExperienceService.HandleExperienceAsync(message, message.Author, ((message.Channel as ITextChannel).Guild));
                     }
                 }
 

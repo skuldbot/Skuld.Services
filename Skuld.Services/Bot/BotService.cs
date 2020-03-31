@@ -14,6 +14,7 @@ using Skuld.Core;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
 using Skuld.Discord.TypeReaders;
+using Skuld.Models;
 using Skuld.Services.Bot.Discord;
 using Skuld.Services.Discord.Models;
 using Skuld.Services.Globalization;
@@ -28,6 +29,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Voltaic;
@@ -47,17 +49,14 @@ namespace Skuld.Services.Bot
 
         public static WebSocketService WebSocket;
         private static VoiceExpService voiceService;
-        private static Assembly PrimaryAssembly;
 
-        public static async Task ConfigureBotAsync(SkuldConfig inConfig, DiscordSocketConfig config, CommandServiceConfig cmdConfig, MessageServiceConfig msgConfig, Assembly primaryAssembly)
+        public static async Task ConfigureBotAsync(SkuldConfig inConfig, DiscordSocketConfig config, CommandServiceConfig cmdConfig, MessageServiceConfig msgConfig)
         {
             Configuration = inConfig;
 
             CommandServiceConfig = cmdConfig;
 
             MessageServiceConfig = msgConfig;
-
-            PrimaryAssembly = primaryAssembly;
 
             DiscordClient = new DiscordShardedClient(config);
 
@@ -101,7 +100,7 @@ namespace Skuld.Services.Bot
 
         #region Services
 
-        internal static async Task<EventResult> ConfigureCommandServiceAsync()
+        internal static async Task<EventResult<IEnumerable<ModuleInfo>>> ConfigureCommandServiceAsync()
         {
             try
             {
@@ -113,17 +112,19 @@ namespace Skuld.Services.Bot
                 CommandService.AddTypeReader<Uri>(new UriTypeReader());
                 CommandService.AddTypeReader<Guid>(new GuidTypeReader());
                 CommandService.AddTypeReader<Emoji>(new EmojiTypeReader());
+                CommandService.AddTypeReader<Emote>(new EmoteTypeReader());
                 CommandService.AddTypeReader<IPAddress>(new IPAddressTypeReader());
                 CommandService.AddTypeReader<RoleConfig>(new RoleConfigTypeReader());
                 CommandService.AddTypeReader<DateTimeZone>(new DateTimeZoneTypeReader());
                 CommandService.AddTypeReader<GuildRoleConfig>(new GuildRoleConfigTypeReader());
-                await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), Services).ConfigureAwait(false);
 
-                return EventResult.FromSuccess();
+                IEnumerable<ModuleInfo> modules = await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), Services).ConfigureAwait(false);
+
+                return EventResult<IEnumerable<ModuleInfo>>.FromSuccess(modules);
             }
             catch (Exception ex)
             {
-                return EventResult.FromFailureException(ex.Message, ex);
+                return EventResult<IEnumerable<ModuleInfo>>.FromFailureException(ex.Message, ex);
             }
         }
 
@@ -141,7 +142,16 @@ namespace Skuld.Services.Bot
                     .AddSingleton<SocialAPIS>()
                     .AddSingleton<SteamStore>()
                     .AddSingleton<IqdbClient>()
-                    .AddSingleton<BooruClient>()
+                #region Booru
+                    .AddSingleton<E621Client>()
+                    .AddSingleton<Rule34Client>()
+                    .AddSingleton<YandereClient>()
+                    .AddSingleton<KonaChanClient>()
+                    .AddSingleton<DanbooruClient>()
+                    .AddSingleton<GelbooruClient>()
+                    .AddSingleton<RealbooruClient>()
+                    .AddSingleton<SafebooruClient>()
+                #endregion
                     .AddSingleton<GiphyClient>()
                     .AddSingleton<YNWTFClient>()
                     .AddSingleton<SysExClient>()

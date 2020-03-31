@@ -3,9 +3,8 @@ using Discord.WebSocket;
 using NodaTime;
 using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Formatting;
-using Skuld.Core.Extensions.Verification;
-using Skuld.Core.Models;
 using Skuld.Core.Utilities;
+using Skuld.Models;
 using Skuld.Services.Accounts.Banking.Models;
 using Skuld.Services.Banking;
 using StatsdClient;
@@ -19,27 +18,41 @@ namespace Skuld.Services.Extensions
 {
     public static class UserExtensions
     {
-        public static async Task<object> GrantExperienceAsync(this User user, ulong amount, IGuild guild, IUserMessage message, Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action, bool skipTimeCheck = false)
+        public static async Task<bool> GrantExperienceAsync(this User user, ulong amount, IGuild guild, IUserMessage message, Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action, bool skipTimeCheck = false)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             var luxp = Database.UserXp.FirstOrDefault(x => x.UserId == user.Id && x.GuildId == guild.Id);
 
+            if(user.PrestigeLevel > 0)
+            {
+                amount = amount.Add((ulong)Math.Floor(amount / user.PrestigeLevel * .25));
+            }
+
             bool didLevelUp = false;
+            bool wasDatabaseChanged = false;
 
             if (luxp != null)
             {
-                if (luxp.LastGranted < (DateTime.UtcNow.ToEpoch() - 60) || skipTimeCheck)
+                var now = DateTime.UtcNow.ToEpoch();
+                var check = now - luxp.LastGranted;
+                if (check >= 60 || skipTimeCheck)
                 {
-                    ulong levelAmount = 0;
+                     ulong levelAmount = 0;
+
+                    DogStatsd.Increment("user.levels.xp.granted", (int)amount);
+
+                    DogStatsd.Increment("user.levels.processed");
 
                     var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1, DiscordUtilities.PHI); //get next level xp requirement based on phi
-                    var currXp = (luxp.XP + amount);
+                    var currXp = luxp.XP.Add(amount);
                     while (currXp >= xptonextlevel)
                     {
-                        DogStatsd.Increment("user.levels.processed");
-                        xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1 + levelAmount, DiscordUtilities.PHI);
+                        DogStatsd.Increment("user.levels.levelup");
+
                         levelAmount++;
-                        currXp -= xptonextlevel;
+                        currXp = currXp.Subtract(xptonextlevel);
+                        xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1 + levelAmount, DiscordUtilities.PHI);
+
                         action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
                                       guild,
                                       await Database.GetOrInsertGuildAsync(guild).ConfigureAwait(false),
@@ -50,24 +63,36 @@ namespace Skuld.Services.Extensions
                     if (levelAmount > 0) //if over or equal to next level requirement, update accordingly
                     {
                         luxp.XP = currXp;
-                        luxp.TotalXP += amount;
-                        luxp.Level += levelAmount;
-                        luxp.LastGranted = DateTime.UtcNow.ToEpoch();
+                        luxp.TotalXP = luxp.TotalXP.Add(amount);
+                        luxp.Level = luxp.Level.Add(levelAmount);
+
+                        if (!skipTimeCheck)
+                        {
+                            luxp.LastGranted = now;
+                        }
+
+                        Log.Verbose("XPGrant", $"User leveled up {levelAmount} time{(levelAmount >= 2 ? "s" : (levelAmount < 1 ? "s" : ""))}");
 
                         didLevelUp = true;
+                        wasDatabaseChanged = true;
                     }
                     else
                     {
-                        luxp.XP += amount;
-                        luxp.TotalXP += amount;
-                        luxp.LastGranted = DateTime.UtcNow.ToEpoch();
+                        luxp.XP = luxp.XP.Add(amount);
+                        luxp.TotalXP = luxp.TotalXP.Add(amount);
+
+                        if (!skipTimeCheck)
+                        {
+                            luxp.LastGranted = now;
+                        }
 
                         didLevelUp = false;
+                        wasDatabaseChanged = true;
                     }
                 }
                 else
                 {
-                    return null;
+                    didLevelUp = false;
                 }
             }
             else
@@ -79,15 +104,17 @@ namespace Skuld.Services.Extensions
                     UserId = user.Id,
                     GuildId = guild.Id,
                     TotalXP = amount,
-                    Level = DatabaseUtilities.GetLevelFromTotalXP(amount, DiscordUtilities.PHI)
+                    Level = 0
                 });
 
                 didLevelUp = false;
-
-                DogStatsd.Increment("user.levels.processed");
+                wasDatabaseChanged = true;
             }
 
-            await Database.SaveChangesAsync().ConfigureAwait(false);
+            if(wasDatabaseChanged)
+            {
+                await Database.SaveChangesAsync().ConfigureAwait(false);
+            }
 
             return didLevelUp;
         }
@@ -107,7 +134,7 @@ namespace Skuld.Services.Extensions
 
             var embed = new EmbedBuilder()
                 .AddAuthor(Client)
-                .WithTitle($"{user.Username}{(guildUser != null ? (guildUser.Nickname != null ? $" ({guildUser.Nickname})" : "") : "")}#{user.DiscriminatorValue}")
+                .WithTitle(guildUser != null ? guildUser.FullNameWithNickname() : user.FullName())
                 .WithThumbnailUrl(user.GetAvatarUrl() ?? user.GetDefaultAvatarUrl())
                 .WithColor(guildUser?.GetHighestRoleColor(guildUser?.Guild) ?? EmbedExtensions.RandomEmbedColor());
 
@@ -119,7 +146,7 @@ namespace Skuld.Services.Extensions
                 embed.AddInlineField(":video_game: Status", user.Activity.ActivityToString());
             }
 
-            embed.AddInlineField("🤖 Is a bot?", user.IsBot ? "✔️" : "❌");
+            embed.AddInlineField("🤖 Bot", user.IsBot ? DiscordUtilities.Tick_Emote : DiscordUtilities.Cross_Emote);
 
             embed.AddInlineField("👀 Mutual Servers", $"{(user as SocketUser).MutualGuilds.Count}");
 
@@ -172,10 +199,17 @@ namespace Skuld.Services.Extensions
 
         public static bool IsStreakReset(this User target, SkuldConfig config)
         {
+            var limit = target.LastDaily.FromEpoch().AddDays(target.IsDonator ? config.StreakLimitDays * 2 : config.StreakLimitDays).ToEpoch();
+
+            return DateTime.UtcNow.ToEpoch() > limit;
+        }
+
+        public static ushort GetUserStreakLength(this User target, SkuldConfig config)
+        {
             if (target.IsDonator)
-                return target.LastDaily > target.LastDaily.FromEpoch().AddDays((config.StreakLimitDays * 2)).ToEpoch();
+                return (ushort)(config.StreakLimitDays * 2);
             else
-                return target.LastDaily > target.LastDaily.FromEpoch().AddDays(config.StreakLimitDays).ToEpoch();
+                return (ushort)config.StreakLimitDays;
         }
 
         public static ulong GetDailyAmount(this User target, SkuldConfig config)
@@ -194,6 +228,15 @@ namespace Skuld.Services.Extensions
             {
                 if (target.LastDaily == 0 || target.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
+                    if (!target.IsStreakReset(config))
+                    {
+                        target.Streak = target.Streak.Add(1);
+                    }
+                    else
+                    {
+                        target.Streak = 0;
+                    }
+
                     TransactionService.DoTransaction(new TransactionStruct
                     {
                         Amount = target.GetDailyAmount(config),
@@ -208,6 +251,15 @@ namespace Skuld.Services.Extensions
             {
                 if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
+                    if (!donor.IsStreakReset(config))
+                    {
+                        donor.Streak = donor.Streak.Add(1);
+                    }
+                    else
+                    {
+                        donor.Streak = 0;
+                    }
+
                     TransactionService.DoTransaction(new TransactionStruct
                     {
                         Amount = donor.GetDailyAmount(config),
@@ -220,6 +272,13 @@ namespace Skuld.Services.Extensions
             }
 
             return wasSuccessful;
+        }
+
+        public static IRole GetHighestRole(this IGuildUser user)
+        {
+            var roles = user.RoleIds.Select(x => user.Guild.GetRole(x));
+
+            return roles.OrderByDescending(x => x.Position).FirstOrDefault();
         }
     }
 }

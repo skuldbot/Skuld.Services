@@ -1,7 +1,6 @@
 ﻿using Discord;
 using Discord.Commands;
 using Skuld.Services.Discord.Attributes;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -55,6 +54,13 @@ namespace Skuld.Core.Extensions
 
                         summ.AppendLine("**Usage:**");
 
+                        if(!variant.Command.Parameters.Any() || variant.Command.Parameters.All(x=>x.IsOptional))
+                        {
+                            summ.Append(prefix)
+                                .Append(variant.Command.Name.ToLowerInvariant())
+                                .AppendLine();
+                        }
+
                         foreach (var att in variant.Command.Attributes)
                         {
                             if (att.GetType() == typeof(UsageAttribute))
@@ -64,6 +70,7 @@ namespace Skuld.Core.Extensions
                                 foreach (var usg in usage.Usage)
                                 {
                                     summ.Append(prefix)
+                                        .Append(variant.Command.Name.ToLowerInvariant()+" ")
                                         .Append(usg.Replace("<@0>", context.User.Mention));
 
                                     if (usg != usage.Usage.LastOrDefault())

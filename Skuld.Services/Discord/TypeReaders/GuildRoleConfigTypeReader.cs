@@ -15,7 +15,7 @@ namespace Skuld.Discord.TypeReaders
             }
             else
             {
-                return Task.FromResult(TypeReaderResult.FromError(CommandError.ParseFailed, $"`{input}` is not a valid role configuration."));
+                return Task.FromResult(TypeReaderResult.FromError(CommandError.ParseFailed, $"`{input}` is not a valid role configuration"));
             }
         }
     }
