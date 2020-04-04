@@ -174,7 +174,16 @@ namespace Skuld.Services.Guilds.Starboard
 
                         if (gld.StarEmote == reaction.Emote.ToString())
                         {
-                            if (message.Reactions.TryGetValue(Emote.Parse(gld.StarEmote), out ReactionMetadata reactions))
+                            IEmote emote;
+                            if(gld.StarEmote.Contains(":"))
+                            {
+                                emote = Emote.Parse(gld.StarEmote);
+                            }
+                            else
+                            {
+                                emote = new Emoji(gld.StarEmote);
+                            }
+                            if (message.Reactions.TryGetValue(emote, out ReactionMetadata reactions))
                             {
                                 if (Database.StarboardVotes.Any(x => x.MessageId == message.Id) ||
                                     Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id)

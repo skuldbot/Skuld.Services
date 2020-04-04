@@ -14,7 +14,7 @@ namespace Skuld.Core.Extensions
         {
             var search = commandService.Search(context, commandname).Commands;
 
-            var summ = await search.GetSummaryAsync(commandService, context, prefix).ConfigureAwait(false);
+            var summ = await search.GetSummaryAsync(context, prefix).ConfigureAwait(false);
 
             if (summ == null)
             {
@@ -28,7 +28,7 @@ namespace Skuld.Core.Extensions
             return embed;
         }
 
-        public static async Task<string> GetSummaryAsync(this IReadOnlyList<CommandMatch> Variants, CommandService commandService, ICommandContext context, string prefix)
+        public static async Task<string> GetSummaryAsync(this IReadOnlyList<CommandMatch> Variants, ICommandContext context, string prefix)
         {
             if (Variants != null)
             {

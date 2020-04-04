@@ -169,7 +169,7 @@ namespace Skuld.Services.Bot
 
             if (usr.IsBot || usr.IsWebhook) return;
 
-            if (arg2 is IGuildChannel && arg1.HasValue)
+            if (arg2 is IGuildChannel)
             {
                 var message = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
 

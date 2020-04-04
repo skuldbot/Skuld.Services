@@ -91,16 +91,40 @@ namespace Skuld.Services.Bot
                 bool displayerror = true;
                 if (arg3.ErrorReason.Contains("few parameters"))
                 {
-                    string prefix = BotService.Configuration.Prefix;
+                    var prefix = MessageTools.GetPrefixFromCommand(arg2.Message.Content, BotService.Configuration.Prefix, BotService.Configuration.AltPrefix);
+
+                    string cmdName = "";
 
                     if (arg2.Guild != null)
                     {
                         using var Database = new SkuldDbContextFactory().CreateDbContext();
 
-                        prefix = (await Database.GetOrInsertGuildAsync(arg2.Guild).ConfigureAwait(false)).Prefix;
+                        prefix = MessageTools.GetPrefixFromCommand(arg2.Message.Content, 
+                            BotService.Configuration.Prefix, 
+                            BotService.Configuration.AltPrefix, 
+                            (await Database.GetOrInsertGuildAsync(arg2.Guild).ConfigureAwait(false)).Prefix
+                        );
                     }
 
-                    var cmdembed = await BotService.CommandService.GetCommandHelpAsync(arg2, cmd.Name, prefix);
+                    if(cmd.Module.Group != null)
+                    {
+                        string pfx = "";
+
+                        ModuleInfo mod = cmd.Module;
+                        while(mod.Group != null)
+                        {
+                            pfx += $"{mod.Group} ";
+
+                            if (mod.IsSubmodule)
+                            {
+                                mod = cmd.Module.Parent;
+                            }
+                        }
+
+                        cmdName = $"{pfx}{cmd.Name}";
+                    }
+
+                    var cmdembed = await BotService.CommandService.GetCommandHelpAsync(arg2, cmdName, prefix).ConfigureAwait(false);
                     await arg2.Channel.SendMessageAsync("You seem to be missing a parameter or 2, here's the help", embed: cmdembed.Build()).ConfigureAwait(false);
                     displayerror = false;
                 }

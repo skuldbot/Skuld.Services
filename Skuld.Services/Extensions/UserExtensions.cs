@@ -228,15 +228,6 @@ namespace Skuld.Services.Extensions
             {
                 if (target.LastDaily == 0 || target.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
-                    if (!target.IsStreakReset(config))
-                    {
-                        target.Streak = target.Streak.Add(1);
-                    }
-                    else
-                    {
-                        target.Streak = 0;
-                    }
-
                     TransactionService.DoTransaction(new TransactionStruct
                     {
                         Amount = target.GetDailyAmount(config),
@@ -244,6 +235,7 @@ namespace Skuld.Services.Extensions
                     });
 
                     target.LastDaily = DateTime.UtcNow.ToEpoch();
+
                     wasSuccessful = true;
                 }
             }
@@ -251,15 +243,6 @@ namespace Skuld.Services.Extensions
             {
                 if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
                 {
-                    if (!donor.IsStreakReset(config))
-                    {
-                        donor.Streak = donor.Streak.Add(1);
-                    }
-                    else
-                    {
-                        donor.Streak = 0;
-                    }
-
                     TransactionService.DoTransaction(new TransactionStruct
                     {
                         Amount = donor.GetDailyAmount(config),
@@ -267,6 +250,7 @@ namespace Skuld.Services.Extensions
                     });
 
                     donor.LastDaily = DateTime.UtcNow.ToEpoch();
+
                     wasSuccessful = true;
                 }
             }
