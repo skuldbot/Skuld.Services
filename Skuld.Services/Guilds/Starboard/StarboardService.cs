@@ -84,6 +84,10 @@ namespace Skuld.Services.Guilds.Starboard
                 {
                     embed.WithDescription(embed.Description + $"\n[With Video]({emb.Video.Value.Url})");
                 }
+                else if (emb.Url.IsImageExtension())
+                {
+                    embed.WithImageUrl(emb.Url);
+                }
             }
 
             embed.WithDescription(embed.Description + $"\n\n[Message Link]({message.GetJumpUrl()})");
