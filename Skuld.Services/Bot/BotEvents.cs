@@ -171,7 +171,7 @@ namespace Skuld.Services.Bot
 
             if (arg2 is IGuildChannel)
             {
-                var message = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
+                var message = arg1.HasValue ? arg1.Value : await arg1.GetOrDownloadAsync().ConfigureAwait(false);
 
                 await PinningService.ExecuteAdditionAsync(message, arg2, arg3).ConfigureAwait(false);
 

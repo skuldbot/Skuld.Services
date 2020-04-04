@@ -22,7 +22,12 @@ namespace Skuld.Services.Guilds.Starboard
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             var blacklist = Database.StarboardBlacklist.ToList().Where(x => x.GuildId == channel.Guild.Id);
             var whitelist = Database.StarboardWhitelist.ToList().Where(x => x.GuildId == channel.Guild.Id);
+
+            if (dbGuild.StarboardChannel == 0) return false;
+
             var chan = await channel.Guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
+            if (chan == null) return false;
+
             if (channel.IsNsfw && !chan.IsNsfw) return false;
 
             if (!blacklist.Any()) return true;
