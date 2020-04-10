@@ -204,14 +204,6 @@ namespace Skuld.Services.Extensions
             return DateTime.UtcNow.ToEpoch() > limit;
         }
 
-        public static ushort GetUserStreakLength(this User target, SkuldConfig config)
-        {
-            if (target.IsDonator)
-                return (ushort)(config.StreakLimitDays * 2);
-            else
-                return (ushort)config.StreakLimitDays;
-        }
-
         public static ulong GetDailyAmount(this User target, SkuldConfig config)
         {
             if (target.IsDonator)
@@ -220,7 +212,7 @@ namespace Skuld.Services.Extensions
                 return config.DailyAmount + (config.DailyAmount * Math.Min(100, target.Streak));
         }
 
-        public static bool ProcessDaily(this User target, SkuldConfig config, User donor = null)
+        public static bool ProcessDaily(this User target, ulong amount, User donor = null)
         {
             bool wasSuccessful = false;
 
@@ -230,7 +222,7 @@ namespace Skuld.Services.Extensions
                 {
                     TransactionService.DoTransaction(new TransactionStruct
                     {
-                        Amount = target.GetDailyAmount(config),
+                        Amount = amount,
                         Receiver = target
                     });
 
@@ -245,7 +237,7 @@ namespace Skuld.Services.Extensions
                 {
                     TransactionService.DoTransaction(new TransactionStruct
                     {
-                        Amount = donor.GetDailyAmount(config),
+                        Amount = amount,
                         Receiver = target
                     });
 
