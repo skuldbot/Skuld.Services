@@ -188,13 +188,12 @@ namespace Skuld.Services.Bot
 
         public static async Task HandleMessageAsync(SocketMessage arg)
         {
-            using var Database = new SkuldDbContextFactory().CreateDbContext();
+            DogStatsd.Increment("messages.recieved");
+            if (arg.Author.IsBot || arg.Author.IsWebhook || arg.Author.Discriminator.Equals("0000") || arg.Author.DiscriminatorValue == 0 || !(arg is SocketUserMessage message)) return;
 
             try
             {
-                DogStatsd.Increment("messages.recieved");
-                if (arg.Author.IsBot || arg.Author.IsWebhook || arg.Author.Discriminator.Equals("0000") || !(arg is SocketUserMessage message)) return;
-
+                using var Database = new SkuldDbContextFactory().CreateDbContext();
                 if (message.Channel is ITextChannel)
                 {
                     if (!await CheckPermissionToSendMessageAsync(message.Channel as ITextChannel).ConfigureAwait(false)) return;
@@ -209,7 +208,7 @@ namespace Skuld.Services.Bot
                     }
                 }
 
-                User suser = await Database.GetOrInsertUserAsync(arg.Author).ConfigureAwait(false);
+                User suser = await Database.InsertOrGetUserAsync(arg.Author).ConfigureAwait(false);
                 Guild sguild = null;
 
                 if (suser != null && suser.Flags.IsBitSet(DiscordUtilities.Banned) && (!suser.Flags.IsBitSet(DiscordUtilities.BotCreator) || !suser.Flags.IsBitSet(DiscordUtilities.BotAdmin))) return;
@@ -283,7 +282,17 @@ namespace Skuld.Services.Bot
                         await Database.SaveChangesAsync().ConfigureAwait(false);
                     }
 
-                    GuildModules modules = Database.Modules.FirstOrDefault(x => x.Id == sguild.Id);
+                    GuildModules modules;
+                    if (!Database.Modules.Any(x=>x.Id == sguild.Id))
+                    {
+                        Database.Modules.Add(new GuildModules
+                        {
+                            Id = sguild.Id
+                        });
+                        await Database.SaveChangesAsync().ConfigureAwait(false);
+                    }
+
+                    modules = Database.Modules.FirstOrDefault(x => x.Id == sguild.Id);
 
                     if (modules.Custom)
                     {

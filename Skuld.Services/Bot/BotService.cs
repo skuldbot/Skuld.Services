@@ -48,7 +48,6 @@ namespace Skuld.Services.Bot
         internal static SkuldConfig Configuration;
 
         public static WebSocketService WebSocket;
-        private static VoiceExpService voiceService;
 
         public static async Task ConfigureBotAsync(SkuldConfig inConfig, DiscordSocketConfig config, CommandServiceConfig cmdConfig, MessageServiceConfig msgConfig)
         {
@@ -213,7 +212,7 @@ namespace Skuld.Services.Bot
 
         private static void InitializeServices(SkuldConfig Configuration)
         {
-            voiceService = new VoiceExpService(DiscordClient, Configuration);
+            VoiceExpService.Configure(DiscordClient, Configuration);
 
             WebSocket = new WebSocketService(DiscordClient, Configuration);
 

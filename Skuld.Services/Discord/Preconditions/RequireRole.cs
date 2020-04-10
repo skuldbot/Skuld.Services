@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.Commands;
+using Skuld.Core.Utilities;
 using Skuld.Services.Discord.Models;
 using System;
 using System.Threading.Tasks;
@@ -29,16 +30,15 @@ namespace Skuld.Services.Discord.Preconditions
             if (c.User.IsBot)
                 return AccessLevel.Blocked;
 
-            IGuildUser user = (IGuildUser)c.User;
-            if (user != null)
+            if(c.User is IGuildUser user)
             {
                 if (c.Guild.OwnerId == user.Id)
                     return AccessLevel.ServerOwner;
                 if (user.GuildPermissions.Administrator)
                     return AccessLevel.ServerAdmin;
-                if (user.GuildPermissions.ManageMessages && user.GuildPermissions.KickMembers && user.GuildPermissions.ManageRoles)
+                if (user.GuildPermissions.RawValue >= DiscordUtilities.ModeratorPermissions.RawValue)
                     return AccessLevel.ServerMod;
-            }
+            }            
 
             return AccessLevel.User;
         }

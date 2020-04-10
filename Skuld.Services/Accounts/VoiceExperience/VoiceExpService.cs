@@ -12,14 +12,14 @@ using System.Threading.Tasks;
 
 namespace Skuld.Services.VoiceExperience
 {
-    public class VoiceExpService
+    public static class VoiceExpService
     {
         private static DiscordShardedClient DiscordClient;
         private static SkuldConfig Configuration;
 
         private static ConcurrentBag<VoiceEvent> Targets;
 
-        public VoiceExpService(DiscordShardedClient client, SkuldConfig config)
+        public static void Configure(DiscordShardedClient client, SkuldConfig config)
         {
             Configuration = config;
 

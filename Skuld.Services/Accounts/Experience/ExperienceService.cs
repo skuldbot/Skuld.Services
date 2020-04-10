@@ -4,7 +4,6 @@ using Skuld.Core.Extensions;
 using Skuld.Core.Utilities;
 using Skuld.Models;
 using Skuld.Services.Extensions;
-using StatsdClient;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,19 +17,18 @@ namespace Skuld.Services.Accounts.Experience
         {
             if (user.IsBot || user.IsWebhook) return;
 
-            using var Database = new SkuldDbContextFactory().CreateDbContext();
-
-            User User = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
-
-            var result = await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, DefaultAction).ConfigureAwait(false);
-
-            if (result)
+            try
             {
-                Log.Verbose("ExpService", "User leveled up");
-                DogStatsd.Increment("user.levels.levelup");
-            }
+                using var Database = new SkuldDbContextFactory().CreateDbContext();
 
-            return;
+                var User = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
+
+                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, DefaultAction).ConfigureAwait(false);
+            }
+            catch(Exception ex)
+            {
+                Log.Error("ExperienceService", ex.Message, ex);
+            }
         }
 
         static string GetMessage(IUser user, IGuild guild, Guild dbGuild, IUserMessage message, ulong level, IEnumerable<LevelRewards> roles, bool showJumpLink = false, bool showFromVoice = false)
@@ -132,7 +130,12 @@ namespace Skuld.Services.Accounts.Experience
                         {
                             if (dbGuild.LevelUpChannel != 0)
                             {
-                                await (await guild.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false)).SendMessageAsync(msg).ConfigureAwait(false);
+                                var channel = await guild.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false);
+
+                                if(channel != null)
+                                {
+                                    await channel.SendMessageAsync(msg).ConfigureAwait(false);
+                                }
                             }
                             else
                             {
@@ -201,7 +204,12 @@ namespace Skuld.Services.Accounts.Experience
                         {
                             if (dbGuild.LevelUpChannel != 0)
                             {
-                                await (await guild.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false)).SendMessageAsync(msg).ConfigureAwait(false);
+                                var channel = await guild.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false);
+
+                                if (channel != null)
+                                {
+                                    await channel.SendMessageAsync(msg).ConfigureAwait(false);
+                                }
                             }
                         }
                         break;
