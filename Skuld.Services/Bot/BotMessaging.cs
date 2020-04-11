@@ -248,14 +248,14 @@ namespace Skuld.Services.Bot
 
                     sguild = await Database.InsertOrGetGuildAsync(gld).ConfigureAwait(false);
                     
-                    if (!sguild.Name.Equals(textChannel.Guild.Name))
+                    if (sguild.Name == null || !sguild.Name.Equals(textChannel.Guild.Name))
                     {
                         sguild.Name = textChannel.Guild.Name;
 
                         await Database.SaveChangesAsync().ConfigureAwait(false);
                     }
 
-                    if (!sguild.IconUrl.Equals(textChannel.Guild.IconUrl))
+                    if (sguild.IconUrl == null || !sguild.IconUrl.Equals(textChannel.Guild.IconUrl))
                     {
                         sguild.IconUrl = textChannel.Guild.IconUrl;
 
