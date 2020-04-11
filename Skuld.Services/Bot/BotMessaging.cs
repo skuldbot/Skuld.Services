@@ -102,7 +102,7 @@ namespace Skuld.Services.Bot
                         prefix = MessageTools.GetPrefixFromCommand(arg2.Message.Content, 
                             BotService.Configuration.Prefix, 
                             BotService.Configuration.AltPrefix, 
-                            (await Database.GetOrInsertGuildAsync(arg2.Guild).ConfigureAwait(false)).Prefix
+                            (await Database.InsertOrGetGuildAsync(arg2.Guild).ConfigureAwait(false)).Prefix
                         );
                     }
 
@@ -242,11 +242,25 @@ namespace Skuld.Services.Bot
                     }
                 }
 
-                if (message.Channel is ITextChannel)
+                if (message.Channel is ITextChannel textChannel)
                 {
-                    var gld = (message.Channel as ITextChannel).Guild;
+                    var gld = textChannel.Guild;
 
-                    sguild = await Database.GetOrInsertGuildAsync(gld).ConfigureAwait(false);
+                    sguild = await Database.InsertOrGetGuildAsync(gld).ConfigureAwait(false);
+                    
+                    if (!sguild.Name.Equals(textChannel.Guild.Name))
+                    {
+                        sguild.Name = textChannel.Guild.Name;
+
+                        await Database.SaveChangesAsync().ConfigureAwait(false);
+                    }
+
+                    if (!sguild.IconUrl.Equals(textChannel.Guild.IconUrl))
+                    {
+                        sguild.IconUrl = textChannel.Guild.IconUrl;
+
+                        await Database.SaveChangesAsync().ConfigureAwait(false);
+                    }
                 }
 
                 if (sguild != null)

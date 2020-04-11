@@ -1,5 +1,4 @@
-﻿using Moq;
-using Skuld.Core.Models;
+﻿using Skuld.Models;
 using Skuld.Services.Accounts.Banking.Models;
 using Skuld.Services.Banking;
 using Xunit;
