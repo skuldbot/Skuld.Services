@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Skuld.Models\Skuld.Models\Skuld.Models.csproj" />
     <ProjectReference Include="..\Skuld.Services\Skuld.Services.csproj" />
   </ItemGroup>
 
