@@ -18,14 +18,22 @@ namespace Skuld.Services.Extensions
 {
     public static class UserExtensions
     {
-        public static async Task<bool> GrantExperienceAsync(this User user, ulong amount, IGuild guild, IUserMessage message, Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action, bool skipTimeCheck = false)
+        public static async Task<bool> GrantExperienceAsync(
+            this User user,
+            ulong amount,
+            IGuild guild,
+            IUserMessage message,
+            Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action,
+            bool skipTimeCheck = false)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
-            var luxp = Database.UserXp.FirstOrDefault(x => x.UserId == user.Id && x.GuildId == guild.Id);
+            var luxp = Database.UserXp.FirstOrDefault(
+                x => x.UserId == user.Id && x.GuildId == guild.Id);
 
             if(user.PrestigeLevel > 0)
             {
-                amount = amount.Add((ulong)Math.Floor(amount / user.PrestigeLevel * .25));
+                var addition = (ulong)Math.Floor(amount / user.PrestigeLevel * .25);
+                amount = amount.Add(addition);
             }
 
             bool didLevelUp = false;
@@ -43,7 +51,7 @@ namespace Skuld.Services.Extensions
 
                     DogStatsd.Increment("user.levels.processed");
 
-                    var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1, DiscordUtilities.PHI); //get next level xp requirement based on phi
+                    var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1, DiscordUtilities.PHI);
                     var currXp = luxp.XP.Add(amount);
                     while (currXp >= xptonextlevel)
                     {
@@ -55,12 +63,12 @@ namespace Skuld.Services.Extensions
 
                         action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
                                       guild,
-                                      await Database.GetOrInsertGuildAsync(guild).ConfigureAwait(false),
+                                      await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
                                       message,
                                       luxp.Level + levelAmount);
                     }
 
-                    if (levelAmount > 0) //if over or equal to next level requirement, update accordingly
+                    if (levelAmount > 0)
                     {
                         luxp.XP = currXp;
                         luxp.TotalXP = luxp.TotalXP.Add(amount);

@@ -137,29 +137,47 @@ namespace Skuld.Services.Guilds.Starboard
                 return false;
             }
 
-            string reactionRange = dbGuild.StarEmote;
-
-            if (Reactions >= 10)
+            if(Reactions < dbGuild.StarRemoveAmount)
             {
-                reactionRange = dbGuild.StarRange1;
+                using var database = new SkuldDbContextFactory().CreateDbContext();
+
+                database.StarboardVotes.ToList().Where(x => x.StarboardMessageId == starboardedMessage && !x.WasSourceMessageReaction).ToList().ForEach(x =>
+                  {
+                      x.StarboardMessageId = 0;
+                  });
+
+                await database.SaveChangesAsync().ConfigureAwait(false);
+
+                await message.DeleteAsync().ConfigureAwait(false);
+
+                return false;
             }
-            if (Reactions >= 20)
+            else
             {
-                reactionRange = dbGuild.StarRange2;
+                string reactionRange = dbGuild.StarEmote;
+
+                if (Reactions >= 10)
+                {
+                    reactionRange = dbGuild.StarRange1;
+                }
+                if (Reactions >= 20)
+                {
+                    reactionRange = dbGuild.StarRange2;
+                }
+                if (Reactions >= 30)
+                {
+                    reactionRange = dbGuild.StarRange3;
+                }
+
+                var splitSection = message.Content.Split(" | ");
+
+                await message.ModifyAsync(x =>
+                {
+                    x.Content = $"{reactionRange} {Reactions} | {splitSection[1]}";
+                }).ConfigureAwait(false);
+
+                return true;
             }
-            if (Reactions >= 30)
-            {
-                reactionRange = dbGuild.StarRange3;
-            }
-
-            var splitSection = message.Content.Split(" | ");
-
-            await message.ModifyAsync(x =>
-            {
-                x.Content = $"{reactionRange} {Reactions} | {splitSection[1]}";
-            }).ConfigureAwait(false);
-
-            return true;
         }
 
         public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
@@ -178,7 +196,7 @@ namespace Skuld.Services.Guilds.Starboard
 
                     if (feats.Starboard)
                     {
-                        var gld = await Database.GetOrInsertGuildAsync(guild).ConfigureAwait(false);
+                        var gld = await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false);
                         if (!await IsWhitelistedAsync(gld, message, guildChannel, reaction.UserId).ConfigureAwait(false)) return;
 
                         if (gld.StarEmote == reaction.Emote.ToString())

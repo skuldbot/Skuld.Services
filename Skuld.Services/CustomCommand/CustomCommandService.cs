@@ -15,7 +15,7 @@ namespace Skuld.Services.CustomCommands
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
-            var prefix = MessageTools.GetPrefixFromCommand(context.Message.Content, config.Prefix, config.AltPrefix, (await Database.GetOrInsertGuildAsync(context.Guild).ConfigureAwait(false)).Prefix);
+            var prefix = MessageTools.GetPrefixFromCommand(context.Message.Content, config.Prefix, config.AltPrefix, (await Database.InsertOrGetGuildAsync(context.Guild).ConfigureAwait(false)).Prefix);
             if(prefix != null)
             {
                 var name = MessageTools.GetCommandName(prefix, context.Message);

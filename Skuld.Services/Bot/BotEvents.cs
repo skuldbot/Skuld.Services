@@ -97,7 +97,7 @@ namespace Skuld.Services.Bot
 
             if (arg2 is IGuildChannel guildChannel)
             {
-                var gld = await Database.GetOrInsertGuildAsync(guildChannel.Guild).ConfigureAwait(false);
+                var gld = await Database.InsertOrGetGuildAsync(guildChannel.Guild).ConfigureAwait(false);
                 var feats = Database.Features.FirstOrDefault(x => x.Id == guildChannel.GuildId);
 
                 if (feats.Starboard && gld.StarDeleteIfSourceDelete)
@@ -127,7 +127,7 @@ namespace Skuld.Services.Bot
             
             if(arg2 is IGuildChannel guildChannel)
             {
-                var gld = await Database.GetOrInsertGuildAsync(guildChannel.Guild).ConfigureAwait(false);
+                var gld = await Database.InsertOrGetGuildAsync(guildChannel.Guild).ConfigureAwait(false);
                 var feats = Database.Features.FirstOrDefault(x => x.Id == guildChannel.GuildId);
 
                 if(feats.Starboard && gld.StarDeleteIfSourceDelete)
@@ -375,7 +375,7 @@ namespace Skuld.Services.Bot
             {
                 using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
-                var gld = await database.GetOrInsertGuildAsync(arg.Guild).ConfigureAwait(false);
+                var gld = await database.InsertOrGetGuildAsync(arg.Guild).ConfigureAwait(false);
 
                 if (gld != null)
                 {
@@ -403,7 +403,7 @@ namespace Skuld.Services.Bot
 
             using var db = new SkuldDbContextFactory().CreateDbContext();
 
-            var gld = await db.GetOrInsertGuildAsync(arg.Guild).ConfigureAwait(false);
+            var gld = await db.InsertOrGetGuildAsync(arg.Guild).ConfigureAwait(false);
 
             if (gld != null)
             {
@@ -458,7 +458,7 @@ namespace Skuld.Services.Bot
 
             await BotService.DiscordClient.SendDataAsync(BotService.Configuration.IsDevelopmentBuild, BotService.Configuration.DiscordGGKey, BotService.Configuration.DBotsOrgKey, BotService.Configuration.B4DToken).ConfigureAwait(false);
 
-            await database.GetOrInsertGuildAsync(arg, BotService.Configuration.Prefix, BotService.MessageServiceConfig.MoneyName, BotService.MessageServiceConfig.MoneyIcon);
+            await database.InsertOrGetGuildAsync(arg, BotService.Configuration.Prefix, BotService.MessageServiceConfig.MoneyName, BotService.MessageServiceConfig.MoneyIcon);
 
             //MessageQueue.CheckForEmptyGuilds = true;
             Log.Verbose(Key, $"Just left {arg}");

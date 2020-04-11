@@ -14,7 +14,10 @@ namespace Skuld.Services.Banking
             {
                 if (transaction.Sender.Money < transaction.Amount)
                 {
-                    return EventResult<bool>.FromFailureException("sender doesn't have enough money", new TransactionException("sender doesn't have enough money"));
+                    return EventResult<bool>.FromFailureException(
+                        "Sender doesn't have enough money",
+                        new TransactionException("Sender doesn't have enough money")
+                    );
                 }
 
                 transaction.Sender.Money = transaction.Sender.Money.Subtract(transaction.Amount);
