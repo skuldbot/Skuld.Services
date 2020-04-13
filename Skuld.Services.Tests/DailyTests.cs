@@ -36,7 +36,7 @@ namespace Skuld.Services.Tests
 
             Assert.Equal(300ul, standardAmount);
             Assert.Equal(1800ul, standardStreakAmount);
-            Assert.Equal(30300ul, standardMaxStreakAmount);
+            Assert.Equal(15300ul, standardMaxStreakAmount);
         }
 
         [Fact]
@@ -68,7 +68,7 @@ namespace Skuld.Services.Tests
 
             Assert.Equal(600ul, donatorAmount);
             Assert.Equal(3300ul, donatorStreakAmount);
-            Assert.Equal(60300ul, donatorMaxStreakAmount);
+            Assert.Equal(30300ul, donatorMaxStreakAmount);
         }
     }
 }

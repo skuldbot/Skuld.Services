@@ -218,7 +218,7 @@ namespace Skuld.Services.Extensions
 
             if (target.Streak > 0)
             {
-                var amount = daily * Math.Min(100, target.Streak);
+                var amount = daily * Math.Min(50, target.Streak);
 
                 if (target.IsDonator)
                 {
