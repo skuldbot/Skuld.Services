@@ -94,7 +94,13 @@ namespace Skuld.Services.VoiceExperience
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
 
                 var skUser = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
-                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild, null, false, ExperienceService.VoiceAction).ConfigureAwait(false);
+                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild, null, true, ExperienceService.VoiceAction).ConfigureAwait(false);
+
+                var voiceXp = Database.UserXp.FirstOrDefault(x => x.UserId == skUser.Id && x.GuildId == channel.Guild.Id && x.IsVoiceExperience == true);
+
+                voiceXp.TimeInVoiceM = totalTime - Configuration.VoiceExpMinMinutes;
+
+                await Database.SaveChangesAsync().ConfigureAwait(false);
             }
         }
 

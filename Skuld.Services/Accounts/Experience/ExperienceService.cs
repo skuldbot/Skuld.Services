@@ -24,7 +24,13 @@ namespace Skuld.Services.Accounts.Experience
 
                 var User = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
 
-                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, true, DefaultAction).ConfigureAwait(false);
+                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, false, DefaultAction).ConfigureAwait(false);
+
+                var xp = Database.UserXp.FirstOrDefault(x => x.GuildId == guild.Id && x.UserId == user.Id && x.IsVoiceExperience == false);
+
+                xp.MessagesSent = xp.MessagesSent.Add(1);
+
+                await Database.SaveChangesAsync().ConfigureAwait(false);
             }
             catch(Exception ex)
             {
