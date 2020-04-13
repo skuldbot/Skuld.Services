@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using Skuld.Core;
 using Skuld.Core.Extensions;
 using Skuld.Core.Utilities;
@@ -51,9 +52,7 @@ namespace Skuld.Services.Accounts.Experience
 
             if (msg != null)
             {
-                msg = msg
-                    .Replace("-m", user.Mention)
-                    .Replace("-u", user.Username)
+                msg = msg.ReplaceGuildEventMessage(user, guild as SocketGuild)
                     .Replace("-l", level.ToFormattedString())
                     .Replace("-r", rles);
             }
