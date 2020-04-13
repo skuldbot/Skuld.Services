@@ -23,12 +23,15 @@ namespace Skuld.Services.Extensions
             ulong amount,
             IGuild guild,
             IUserMessage message,
+            bool isVoice,
             Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action,
             bool skipTimeCheck = false)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             var luxp = Database.UserXp.FirstOrDefault(
-                x => x.UserId == user.Id && x.GuildId == guild.Id);
+                x => x.UserId == user.Id 
+                && x.GuildId == guild.Id
+                && x.IsVoiceExperience == isVoice);
 
             if(user.PrestigeLevel > 0)
             {
@@ -112,7 +115,8 @@ namespace Skuld.Services.Extensions
                     UserId = user.Id,
                     GuildId = guild.Id,
                     TotalXP = amount,
-                    Level = 0
+                    Level = 0,
+                    IsVoiceExperience = isVoice
                 });
 
                 didLevelUp = false;

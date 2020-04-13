@@ -94,7 +94,7 @@ namespace Skuld.Services.VoiceExperience
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
 
                 var skUser = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
-                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild, null, ExperienceService.VoiceAction).ConfigureAwait(false);
+                await skUser.GrantExperienceAsync((ulong)xpToGrant, channel.Guild, null, false, ExperienceService.VoiceAction).ConfigureAwait(false);
             }
         }
 

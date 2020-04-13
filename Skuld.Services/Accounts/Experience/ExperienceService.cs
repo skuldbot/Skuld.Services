@@ -23,7 +23,7 @@ namespace Skuld.Services.Accounts.Experience
 
                 var User = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
 
-                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, DefaultAction).ConfigureAwait(false);
+                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, true, DefaultAction).ConfigureAwait(false);
             }
             catch(Exception ex)
             {
