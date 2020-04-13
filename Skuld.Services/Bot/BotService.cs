@@ -29,7 +29,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Voltaic;
@@ -202,11 +201,11 @@ namespace Skuld.Services.Bot
 
                 Services = localServices.BuildServiceProvider();
 
-                Log.Info("Framework", "Successfully built service provider");
+                Log.Info("HostService", "Successfully built service provider");
             }
             catch (Exception ex)
             {
-                Log.Critical("Framework", ex.Message, ex);
+                Log.Critical("HostService", ex.Message, ex);
             }
         }
 
