@@ -214,45 +214,51 @@ namespace Skuld.Services.Extensions
 
         public static ulong GetDailyAmount(this User target, SkuldConfig config)
         {
+            var daily = config.DailyAmount;
+
+            if (target.Streak > 0)
+            {
+                var amount = daily * Math.Min(100, target.Streak);
+
+                if (target.IsDonator)
+                {
+                    return daily + amount * 2;
+                }
+                else
+                {
+                    return daily + amount;
+                }
+            }
             if (target.IsDonator)
-                return config.DailyAmount + (config.DailyAmount * Math.Min(100, target.Streak)) * 2;
+            {
+                return daily * 2;
+            }
             else
-                return config.DailyAmount + (config.DailyAmount * Math.Min(100, target.Streak));
+            {
+                return daily;
+            }
         }
 
         public static bool ProcessDaily(this User target, ulong amount, User donor = null)
         {
             bool wasSuccessful = false;
 
-            if (donor == null)
+            if(donor == null)
             {
-                if (target.LastDaily == 0 || target.LastDaily < DateTime.UtcNow.Date.ToEpoch())
-                {
-                    TransactionService.DoTransaction(new TransactionStruct
-                    {
-                        Amount = amount,
-                        Receiver = target
-                    });
-
-                    target.LastDaily = DateTime.UtcNow.ToEpoch();
-
-                    wasSuccessful = true;
-                }
+                donor = target;
             }
-            else
+
+            if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
             {
-                if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
+                TransactionService.DoTransaction(new TransactionStruct
                 {
-                    TransactionService.DoTransaction(new TransactionStruct
-                    {
-                        Amount = amount,
-                        Receiver = target
-                    });
+                    Amount = amount,
+                    Receiver = target
+                });
 
-                    donor.LastDaily = DateTime.UtcNow.ToEpoch();
+                donor.LastDaily = DateTime.UtcNow.ToEpoch();
 
-                    wasSuccessful = true;
-                }
+                wasSuccessful = true;
             }
 
             return wasSuccessful;
