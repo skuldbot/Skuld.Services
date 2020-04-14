@@ -38,7 +38,7 @@ namespace Skuld.Services.Accounts.Experience
             }
         }
 
-        static string GetMessage(IUser user, IGuild guild, Guild dbGuild, IUserMessage message, ulong level, IEnumerable<LevelRewards> roles, bool showJumpLink = false, bool showFromVoice = false)
+        static string GetMessage(IUser user, IGuild guild, Guild dbGuild, IUserMessage message, ulong level, IEnumerable<LevelRewards> roles, bool showFromVoice = false)
         {
             var msg = dbGuild.LevelUpMessage;
 
@@ -59,17 +59,13 @@ namespace Skuld.Services.Accounts.Experience
             if (msg != null)
             {
                 msg = msg.ReplaceGuildEventMessage(user, guild as SocketGuild)
-                    .Replace("-l", level.ToFormattedString())
-                    .Replace("-r", rles);
+                    .ReplaceFirst("-l", level.ToFormattedString())
+                    .ReplaceFirst("-r", rles)
+                    .ReplaceFirst("-jl", message.GetJumpUrl());
             }
             else
             {
                 msg = $"Congratulations {user.Mention}!! You're now level **{level}**! You currently have access to: `{rles}`";
-            }
-
-            if (showJumpLink)
-            {
-                msg += $"\nMessage that caused level Up: {message.GetJumpUrl()}";
             }
 
             if (showFromVoice)
@@ -102,7 +98,7 @@ namespace Skuld.Services.Accounts.Experience
                 List<LevelRewards> roles = new List<LevelRewards>(autoRoles);
                 roles.AddRange(nonautoRoles);
 
-                var msg = GetMessage(user, guild, dbGuild, message, level, roles, message.Channel.Id != dbGuild.LevelUpChannel || dbGuild.LevelNotification == LevelNotification.DM);
+                var msg = GetMessage(user, guild, dbGuild, message, level, roles);
 
                 if (autoRoles.Any(x => x.LevelRequired == level))
                 {
@@ -135,23 +131,48 @@ namespace Skuld.Services.Accounts.Experience
                         {
                             if (dbGuild.LevelUpChannel != 0)
                             {
-                                var channel = await guild.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false);
+                                var channel = await
+                                    guild.GetTextChannelAsync(dbGuild.LevelUpChannel)
+                                .ConfigureAwait(false);
 
-                                if(channel != null)
+                                if (channel != null)
                                 {
-                                    await channel.SendMessageAsync(msg).ConfigureAwait(false);
+                                    await
+                                        channel.SendMessageAsync(msg)
+                                    .ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    var owner = await
+                                        guild.GetOwnerAsync()
+                                    .ConfigureAwait(false);
+
+                                    await
+                                        owner.SendMessageAsync($"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`")
+                                    .ConfigureAwait(false);
                                 }
                             }
                             else
                             {
-                                await message.Channel.SendMessageAsync(msg).ConfigureAwait(false);
+                                await
+                                    message.Channel.SendMessageAsync(msg)
+                                .ConfigureAwait(false);
                             }
                         }
                         break;
 
                     case LevelNotification.DM:
                         {
-                            await user.SendMessageAsync(msg).ConfigureAwait(false);
+                            try
+                            {
+                                await
+                                    user.SendMessageAsync($"**{guild.Name}:** " + msg)
+                                .ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error("ExperienceService", "Failed sending level up message to DMs, most likely disabled DMs", ex);
+                            }
                         }
                         break;
 
@@ -176,7 +197,7 @@ namespace Skuld.Services.Accounts.Experience
                 List<LevelRewards> roles = new List<LevelRewards>(autoRoles);
                 roles.AddRange(nonautoRoles);
 
-                var msg = GetMessage(user, guild, dbGuild, null, level, roles, false, true);
+                var msg = GetMessage(user, guild, dbGuild, null, level, roles, true);
 
                 if (autoRoles.Any(x => x.LevelRequired == level))
                 {
@@ -209,19 +230,48 @@ namespace Skuld.Services.Accounts.Experience
                         {
                             if (dbGuild.LevelUpChannel != 0)
                             {
-                                var channel = await guild.GetTextChannelAsync(dbGuild.LevelUpChannel).ConfigureAwait(false);
+                                var channel = await
+                                    guild.GetTextChannelAsync(dbGuild.LevelUpChannel)
+                                .ConfigureAwait(false);
 
                                 if (channel != null)
                                 {
-                                    await channel.SendMessageAsync(msg).ConfigureAwait(false);
+                                    await 
+                                        channel.SendMessageAsync(msg)
+                                    .ConfigureAwait(false);
                                 }
+                                else
+                                {
+                                    var owner = await 
+                                        guild.GetOwnerAsync()
+                                    .ConfigureAwait(false);
+
+                                    await
+                                        owner.SendMessageAsync($"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`")
+                                    .ConfigureAwait(false);
+                                }
+                            }
+                            else
+                            {
+                                await
+                                    message.Channel.SendMessageAsync(msg)
+                                .ConfigureAwait(false);
                             }
                         }
                         break;
 
                     case LevelNotification.DM:
                         {
-                            await user.SendMessageAsync(msg).ConfigureAwait(false);
+                            try
+                            {
+                                await
+                                    user.SendMessageAsync($"**{guild.Name}:** " + msg)
+                                .ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error("ExperienceService", "Failed sending level up message to DMs, most likely disabled DMs", ex);
+                            }
                         }
                         break;
 
