@@ -28,10 +28,22 @@ namespace Skuld.Services.Extensions
             bool skipTimeCheck = false)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
-            var luxp = Database.UserXp.FirstOrDefault(
-                x => x.UserId == user.Id 
-                && x.GuildId == guild.Id
-                && x.IsVoiceExperience == isVoice);
+            UserExperience luxp;
+            
+            if(guild != null)
+            {
+                luxp = Database.UserXp.FirstOrDefault(
+                    x => x.UserId == user.Id
+                    && x.GuildId == guild.Id
+                    && x.IsVoiceExperience == isVoice);
+            }
+            else
+            {
+                luxp = Database.UserXp.FirstOrDefault(
+                    x => x.UserId == user.Id
+                    && x.GuildId == 0
+                    && x.IsVoiceExperience == isVoice);
+            }
 
             if(user.PrestigeLevel > 0)
             {
@@ -64,11 +76,14 @@ namespace Skuld.Services.Extensions
                         currXp = currXp.Subtract(xptonextlevel);
                         xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1 + levelAmount, 2.5);
 
-                        action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
-                                      guild,
-                                      await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
-                                      message,
-                                      luxp.Level + levelAmount);
+                        if (action != null)
+                        {
+                            action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
+                                          guild,
+                                          await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
+                                          message,
+                                          luxp.Level + levelAmount);
+                        }
                     }
 
                     if (levelAmount > 0)
@@ -108,16 +123,23 @@ namespace Skuld.Services.Extensions
             }
             else
             {
-                Database.UserXp.Add(new UserExperience
+                var xp = new UserExperience
                 {
                     LastGranted = DateTime.UtcNow.ToEpoch(),
                     XP = amount,
                     UserId = user.Id,
-                    GuildId = guild.Id,
+                    GuildId = 0,
                     TotalXP = amount,
                     Level = 0,
                     IsVoiceExperience = isVoice
-                });
+                };
+
+                if(guild != null)
+                {
+                    xp.GuildId = guild.Id;
+                }
+
+                Database.UserXp.Add(xp);
 
                 didLevelUp = false;
                 wasDatabaseChanged = true;
