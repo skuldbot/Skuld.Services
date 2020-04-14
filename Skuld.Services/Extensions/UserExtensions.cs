@@ -35,7 +35,7 @@ namespace Skuld.Services.Extensions
 
             if(user.PrestigeLevel > 0)
             {
-                var addition = (ulong)Math.Floor(amount / user.PrestigeLevel * .25);
+                var addition = (ulong)Math.Floor(amount * ((float)user.PrestigeLevel/2));
                 amount = amount.Add(addition);
             }
 
@@ -48,13 +48,13 @@ namespace Skuld.Services.Extensions
                 var check = now - luxp.LastGranted;
                 if (check >= 60 || skipTimeCheck)
                 {
-                     ulong levelAmount = 0;
+                    ulong levelAmount = 0;
 
                     DogStatsd.Increment("user.levels.xp.granted", (int)amount);
 
                     DogStatsd.Increment("user.levels.processed");
 
-                    var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1, DiscordUtilities.PHI);
+                    var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1, 2.5);
                     var currXp = luxp.XP.Add(amount);
                     while (currXp >= xptonextlevel)
                     {
@@ -62,7 +62,7 @@ namespace Skuld.Services.Extensions
 
                         levelAmount++;
                         currXp = currXp.Subtract(xptonextlevel);
-                        xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1 + levelAmount, DiscordUtilities.PHI);
+                        xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(luxp.Level + 1 + levelAmount, 2.5);
 
                         action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
                                       guild,

@@ -24,7 +24,7 @@ namespace Skuld.Services.Accounts.Experience
 
                 var User = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
 
-                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 26), guild, message, false, DefaultAction).ConfigureAwait(false);
+                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), guild, message, false, DefaultAction).ConfigureAwait(false);
 
                 var xp = Database.UserXp.FirstOrDefault(x => x.GuildId == guild.Id && x.UserId == user.Id && x.IsVoiceExperience == false);
 
@@ -56,12 +56,21 @@ namespace Skuld.Services.Accounts.Experience
                 }
             }
 
-            if (msg != null)
+            if (msg != null && user != null && guild != null)
             {
                 msg = msg.ReplaceGuildEventMessage(user, guild as SocketGuild)
                     .ReplaceFirst("-l", level.ToFormattedString())
-                    .ReplaceFirst("-r", rles)
-                    .ReplaceFirst("-jl", message.GetJumpUrl());
+                    .ReplaceFirst("-r", rles);
+
+                var jumpLink = message.GetJumpUrl();
+                if (jumpLink != null)
+                {
+                    msg.ReplaceFirst("-jl", jumpLink);
+                }
+                else
+                {
+                    msg.ReplaceFirst("-jl", "JUMPLINK NOT AVAILABLE");
+                }
             }
             else
             {
