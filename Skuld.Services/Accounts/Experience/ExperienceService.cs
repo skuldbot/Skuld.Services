@@ -24,11 +24,11 @@ namespace Skuld.Services.Accounts.Experience
 
                 var User = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
 
-                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), guild, message, false, DefaultAction).ConfigureAwait(false);
+                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), guild, message, DefaultAction).ConfigureAwait(false);
 
-                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), null, message, false, null).ConfigureAwait(false);
+                await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), null, message, null).ConfigureAwait(false);
 
-                var xp = Database.UserXp.FirstOrDefault(x => x.GuildId == guild.Id && x.UserId == user.Id && x.IsVoiceExperience == false);
+                var xp = Database.UserXp.FirstOrDefault(x => x.GuildId == guild.Id && x.UserId == user.Id);
 
                 xp.MessagesSent = xp.MessagesSent.Add(1);
 
