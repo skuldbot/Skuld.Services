@@ -64,14 +64,14 @@ namespace Skuld.Services.Accounts.Experience
                     .ReplaceFirst("-l", level.ToFormattedString())
                     .ReplaceFirst("-r", rles);
 
-                var jumpLink = message.GetJumpUrl();
-                if (jumpLink != null)
+                try
                 {
-                    msg.ReplaceFirst("-jl", jumpLink);
+                    msg.ReplaceFirst("-jl", message.GetJumpUrl());
                 }
-                else
+                catch (Exception ex)
                 {
                     msg.ReplaceFirst("-jl", "JUMPLINK NOT AVAILABLE");
+                    Log.Error("ExperienceService", ex.Message, ex);
                 }
             }
             else
