@@ -30,7 +30,11 @@ namespace Skuld.Services.Accounts.Experience
 
                 var xp = Database.UserXp.FirstOrDefault(x => x.GuildId == guild.Id && x.UserId == user.Id);
 
+                var gxp = Database.UserXp.FirstOrDefault(x => x.GuildId == 0 && x.UserId == user.Id);
+
                 xp.MessagesSent = xp.MessagesSent.Add(1);
+
+                gxp.MessagesSent = gxp.MessagesSent.Add(1);
 
                 await Database.SaveChangesAsync().ConfigureAwait(false);
             }

@@ -50,38 +50,38 @@ namespace Skuld.Services.Extensions
             }
 
             bool didLevelUp = false;
-            bool wasDatabaseChanged = false;
+            var now = DateTime.UtcNow.ToEpoch();
 
             if (luxp != null)
             {
-                var now = DateTime.UtcNow.ToEpoch();
                 var check = now - luxp.LastGranted;
+
                 if (check >= 60 || skipTimeCheck)
                 {
                     var result = await
                         PerformLevelupCheckAsync(luxp, amount, user, guild, message, action)
                     .ConfigureAwait(false);
 
-                    wasDatabaseChanged = true;
-
                     didLevelUp = result.Successful;
 
                     luxp = result.Data;
                 }
-                else
-                {
-                    didLevelUp = false;
-                }
             }
             else
             {
-                var now = DateTime.UtcNow.ToEpoch();
+                ulong id = 0;
+
+                if(guild != null)
+                {
+                    id = guild.Id;
+                }
+
                 var xp = new UserExperience
                 {
                     LastGranted = now,
                     XP = amount,
                     UserId = user.Id,
-                    GuildId = 0,
+                    GuildId = id,
                     TotalXP = amount,
                     Level = 0
                 };
@@ -90,17 +90,12 @@ namespace Skuld.Services.Extensions
                     PerformLevelupCheckAsync(xp, amount, user, guild, message, action)
                 .ConfigureAwait(false);
 
-                wasDatabaseChanged = true;
-
                 didLevelUp = result.Successful;
 
                 Database.UserXp.Add(result.Data);
             }
 
-            if (wasDatabaseChanged)
-            {
-                await Database.SaveChangesAsync().ConfigureAwait(false);
-            }
+            await Database.SaveChangesAsync().ConfigureAwait(false);
 
             return didLevelUp;
         }
