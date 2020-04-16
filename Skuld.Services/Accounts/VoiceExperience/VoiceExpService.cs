@@ -88,6 +88,8 @@ namespace Skuld.Services.VoiceExperience
                 totalTime = timeDiff;
             }
 
+            totalTime = totalTime / 60;
+
             var xpToGrant = DatabaseUtilities.GetExpMultiFromMinutesInVoice(Configuration.VoiceExpDeterminate, Configuration.VoiceExpMinMinutes, Configuration.VoiceExpMaxGrant, totalTime);
 
             {
