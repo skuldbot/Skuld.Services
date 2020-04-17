@@ -88,7 +88,7 @@ namespace Skuld.Services.VoiceExperience
                 totalTime = timeDiff;
             }
 
-            totalTime = totalTime / 60;
+            totalTime /= 60;
 
             var xpToGrant = DatabaseUtilities.GetExpMultiFromMinutesInVoice(Configuration.VoiceExpDeterminate, Configuration.VoiceExpMinMinutes, Configuration.VoiceExpMaxGrant, totalTime);
 
@@ -108,7 +108,9 @@ namespace Skuld.Services.VoiceExperience
 
         private static async Task Client_UserVoiceStateUpdated(SocketUser user, SocketVoiceState previousState, SocketVoiceState currentState)
         {
-            var difference = new VoiceStateDifference(previousState, currentState);
+            if (user.IsBot || user.IsWebhook) return;
+
+            var difference = VoiceStateDifference.SetStateDifference(previousState, currentState);
 
             var channel = GetVoiceChannel(previousState, currentState);
             var guild = channel.Guild;
@@ -121,17 +123,26 @@ namespace Skuld.Services.VoiceExperience
 
             if (feats != null && feats.Experience)
             {
-                if (previousState.VoiceChannel == null && currentState.VoiceChannel != null && 
-                    !currentState.IsMuted && !currentState.IsDeafened &&
-                    !currentState.IsSelfMuted && !currentState.IsSelfDeafened) // Connect
+                if (difference.DidConnect) // Connect
                 {
-                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
-                    return;
-                }
-                else if (previousState.VoiceChannel == null && currentState.VoiceChannel != null)
-                {
-                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
-                    return;
+                    if (!currentState.IsMuted && !currentState.IsDeafened &&
+                    !currentState.IsSelfMuted && !currentState.IsSelfDeafened)
+                    {
+                        if(difference.IsAloneWithBot)
+                        {
+                            Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
+                        }
+                        else
+                        {
+                            Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
+                        }
+                        return;
+                    }
+                    else
+                    {
+                        Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
+                        return;
+                    }
                 }
 
                 if (previousState.VoiceChannel != null && currentState.VoiceChannel == null) // Disconnect
@@ -143,24 +154,23 @@ namespace Skuld.Services.VoiceExperience
                     return;
                 }
 
-                if (currentState.VoiceChannel == guild.AFKChannel)
+                if (difference.IsAlone ||
+                    difference.IsAloneWithBot ||
+                    difference.DidMoveToAFKChannel ||
+                    (difference.DidMute || difference.DidDeafen) == true)
                 {
                     Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
                     return;
                 }
-
-                if (difference.DidMute || difference.DidDeafen)
-                {
-                    Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
-                }
                 else
                 {
                     Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
+                    return;
                 }
             }
         }
 
-        private class VoiceStateDifference
+        private struct VoiceStateDifference
         {
             public bool DidSelfMute { get; private set; }
             public bool DidSelfDeafen { get; private set; }
@@ -168,38 +178,48 @@ namespace Skuld.Services.VoiceExperience
             public bool DidServerDeafen { get; private set; }
             public bool DidDeafen { get => DidSelfDeafen || DidServerDeafen; }
             public bool DidMute { get => DidSelfMute || DidServerMute; }
+            public bool IsAloneWithBot { get => UserDifference.Count == 2 && UserDifference.Any(x => x.IsBot); }
+            public bool IsAlone { get => UserDifference.Count == 1; }
             public bool DidMoveToAFKChannel { get; private set; }
             public bool DidDisconnect { get; private set; }
             public bool DidConnect { get; private set; }
-            public IList<SocketGuildUser> UserDifference { get; private set; } = new List<SocketGuildUser>();
+            public IList<SocketGuildUser> UserDifference { get; private set; }
 
-            public VoiceStateDifference(SocketVoiceState previousState, SocketVoiceState newState)
+            public static VoiceStateDifference SetStateDifference(SocketVoiceState previousState, SocketVoiceState newState)
             {
-                SetStateDifference(previousState, newState);
-            }
-
-            public VoiceStateDifference SetStateDifference(SocketVoiceState previousState, SocketVoiceState newState)
-            {
-                DidSelfMute = !previousState.IsSelfMuted && newState.IsSelfMuted;
-                DidSelfDeafen = !previousState.IsSelfDeafened && newState.IsSelfDeafened;
-                DidServerMute = !previousState.IsMuted && newState.IsMuted;
-                DidServerDeafen = !previousState.IsDeafened && newState.IsDeafened;
-                DidDisconnect = newState.VoiceChannel == null;
-                DidConnect = previousState.VoiceChannel == null && newState.VoiceChannel != null;
-
+                var VoiceStateDifference = new VoiceStateDifference
+                {
+                    DidSelfMute = !previousState.IsSelfMuted && newState.IsSelfMuted,
+                    DidSelfDeafen = !previousState.IsSelfDeafened && newState.IsSelfDeafened,
+                    DidServerMute = !previousState.IsMuted && newState.IsMuted,
+                    DidServerDeafen = !previousState.IsDeafened && newState.IsDeafened,
+                    DidDisconnect = newState.VoiceChannel == null,
+                    DidConnect = previousState.VoiceChannel == null && newState.VoiceChannel != null
+                };
+                
                 if (newState.VoiceChannel != null)
-                    DidMoveToAFKChannel = newState.VoiceChannel.Guild.AFKChannel != null ? newState.VoiceChannel == newState.VoiceChannel.Guild.AFKChannel : false;
+                {
+                    VoiceStateDifference.DidMoveToAFKChannel = newState.VoiceChannel.Guild.AFKChannel != null ? newState.VoiceChannel == newState.VoiceChannel.Guild.AFKChannel : false;
+                }
                 else
-                    DidMoveToAFKChannel = false;
+                {
+                    VoiceStateDifference.DidMoveToAFKChannel = false;
+                }
 
                 if (newState.VoiceChannel == null && previousState.VoiceChannel != null)
-                    UserDifference = previousState.VoiceChannel.Users.ToList();
+                {
+                    VoiceStateDifference.UserDifference = previousState.VoiceChannel.Users.ToList();
+                }
                 else if (newState.VoiceChannel != null && previousState.VoiceChannel != null)
-                    UserDifference = newState.VoiceChannel.Users.Where(x => !previousState.VoiceChannel.Users.Contains(x)).ToList();
+                {
+                    VoiceStateDifference.UserDifference = newState.VoiceChannel.Users.Where(x => !previousState.VoiceChannel.Users.Contains(x)).ToList();
+                }
                 else if (newState.VoiceChannel != null && previousState.VoiceChannel == null)
-                    UserDifference = newState.VoiceChannel.Users.ToList();
+                {
+                    VoiceStateDifference.UserDifference = newState.VoiceChannel.Users.ToList();
+                }
 
-                return this;
+                return VoiceStateDifference;
             }
         }
     }
