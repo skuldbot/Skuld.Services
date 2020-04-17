@@ -44,7 +44,7 @@ namespace Skuld.Services.VoiceExperience
             return previousState.VoiceChannel;
         }
 
-        private static async Task DoLeaveXpGrantAsync(SocketGuildUser user, SocketVoiceChannel channel)
+        private static async Task DoLeaveXpGrantAsync(SocketUser user, SocketVoiceChannel channel)
         {
             if (user.IsBot || user.IsWebhook) return;
 
@@ -62,6 +62,7 @@ namespace Skuld.Services.VoiceExperience
                 }
 
                 Targets.Clear();
+
                 foreach (var e in events)
                 {
                     Targets.Add(e);
@@ -125,22 +126,17 @@ namespace Skuld.Services.VoiceExperience
             {
                 if (difference.DidConnect) // Connect
                 {
-                    if (!currentState.IsMuted && !currentState.IsDeafened &&
-                    !currentState.IsSelfMuted && !currentState.IsSelfDeafened)
+                    if (difference.IsAlone ||
+                        difference.IsAloneWithBot ||
+                        difference.DidMoveToAFKChannel ||
+                        (difference.DidMute || difference.DidDeafen) == true)
                     {
-                        if(difference.IsAloneWithBot)
-                        {
-                            Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
-                        }
-                        else
-                        {
-                            Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
-                        }
+                        Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
                         return;
                     }
                     else
                     {
-                        Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), false));
+                        Targets.Add(new VoiceEvent(channel, guild, user, DateTime.UtcNow.ToEpoch(), true));
                         return;
                     }
                 }
@@ -149,7 +145,7 @@ namespace Skuld.Services.VoiceExperience
                 {
                     if (Targets.Any(x => x.User.Id == user.Id))
                     {
-                        await DoLeaveXpGrantAsync(channel.Guild.GetUser(user.Id), channel).ConfigureAwait(false);
+                        await DoLeaveXpGrantAsync(user, channel).ConfigureAwait(false);
                     }
                     return;
                 }
