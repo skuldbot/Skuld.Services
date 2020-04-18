@@ -60,23 +60,31 @@ namespace Skuld.Services.Bot
             return Task.CompletedTask;
         }
 
-        internal static async Task CommandService_CommandExecuted(Optional<CommandInfo> arg1, ICommandContext arg2, IResult arg3)
+        internal static async Task CommandService_CommandExecuted(
+            Optional<CommandInfo> arg1, 
+            ICommandContext arg2, 
+            IResult arg3
+        )
         {
             CommandInfo cmd = null;
+            string name = "";
 
             if (arg1.IsSpecified)
             {
                 cmd = arg1.Value;
+
+                name = cmd.Module.GetModulePath();
+
+                if (cmd.Name != null)
+                {
+                    name += "." + cmd.Name;
+                }
+
+                name = name
+                    .ToLowerInvariant()
+                    .Replace(" ", "-")
+                    .Replace("/", ".");
             }
-
-            var name = cmd.Module.GetModulePath();
-
-            if (cmd.Name != null)
-            {
-                name += "." + cmd.Name;
-            }
-
-            name = name.ToLowerInvariant().Replace(" ", "-").Replace("/", ".");
 
             if (arg3.IsSuccess)
             {
@@ -117,7 +125,7 @@ namespace Skuld.Services.Bot
                         );
                     }
 
-                    if(cmd.Module.Group != null)
+                    if(cmd != null && cmd.Module.Group != null)
                     {
                         string pfx = "";
 
@@ -133,11 +141,16 @@ namespace Skuld.Services.Bot
                         }
 
                         cmdName = $"{pfx}{cmd.Name}";
-                    }
 
-                    var cmdembed = await BotService.CommandService.GetCommandHelpAsync(arg2, cmdName, prefix).ConfigureAwait(false);
-                    await arg2.Channel.SendMessageAsync("You seem to be missing a parameter or 2, here's the help", embed: cmdembed.Build()).ConfigureAwait(false);
-                    displayerror = false;
+                        var cmdembed = await BotService.CommandService.GetCommandHelpAsync(arg2, cmdName, prefix).ConfigureAwait(false);
+                        await 
+                            arg2.Channel.SendMessageAsync(
+                                "You seem to be missing a parameter or 2, here's the help", 
+                                embed: cmdembed.Build()
+                            )
+                        .ConfigureAwait(false);
+                        displayerror = false;
+                    }
                 }
 
                 if (arg3.ErrorReason.Contains("Timeout"))
@@ -156,37 +169,93 @@ namespace Skuld.Services.Bot
 
                     await EmbedExtensions.FromError(arg3.ErrorReason, arg2)
                         .QueueMessageAsync(arg2)
-                        .ConfigureAwait(false);
+                    .ConfigureAwait(false);
                 }
 
                 switch (arg3.Error)
                 {
                     case CommandError.UnmetPrecondition:
-                        DogStatsd.Increment("commands.errors", 1, 1, new[] { "err:unm-precon" });
+                        DogStatsd.Increment("commands.errors", 
+                            1, 
+                            1, 
+                            new[] { 
+                                "err:unm-precon", 
+                                $"mod:{cmd.Module.Name}", 
+                                $"cmd:{name}" 
+                            }
+                        );
                         break;
 
                     case CommandError.Unsuccessful:
-                        DogStatsd.Increment("commands.errors", 1, 1, new[] { "err:generic" });
+                        DogStatsd.Increment("commands.errors", 
+                            1, 
+                            1, 
+                            new[] { 
+                                "err:generic", 
+                                $"mod:{cmd.Module.Name}", 
+                                $"cmd:{name}" 
+                            }
+                        );
                         break;
 
                     case CommandError.MultipleMatches:
-                        DogStatsd.Increment("commands.errors", 1, 1, new[] { "err:multiple" });
+                        DogStatsd.Increment("commands.errors", 
+                            1, 
+                            1, 
+                            new[] { 
+                                "err:multiple", 
+                                $"mod:{cmd.Module.Name}", 
+                                $"cmd:{name}" 
+                            }
+                        );
                         break;
 
                     case CommandError.BadArgCount:
-                        DogStatsd.Increment("commands.errors", 1, 1, new[] { "err:incorr-args" });
+                        DogStatsd.Increment("commands.errors", 
+                            1, 
+                            1, 
+                            new[] { 
+                                "err:incorr-args", 
+                                $"mod:{cmd.Module.Name}", 
+                                $"cmd:{name}" 
+                            }
+                        );
                         break;
 
                     case CommandError.ParseFailed:
-                        DogStatsd.Increment("commands.errors", 1, 1, new[] { "err:parse-fail" });
+                        DogStatsd.Increment("commands.errors", 
+                            1, 
+                            1, 
+                            new[] { 
+                                "err:parse-fail", 
+                                $"mod:{cmd.Module.Name}", 
+                                $"cmd:{name}" 
+                            }
+                        );
                         break;
 
                     case CommandError.Exception:
-                        DogStatsd.Increment("commands.errors", 1, 1, new[] { "err:exception" });
+                        DogStatsd.Increment("commands.errors", 
+                            1, 
+                            1, 
+                            new[] { 
+                                "err:exception", 
+                                $"mod:{cmd.Module.Name}", 
+                                $"cmd:{name}" 
+                            }
+                        );
                         break;
 
                     case CommandError.UnknownCommand:
-                        DogStatsd.Increment("commands.errors", 1, 1, new[] { "err:unk-cmd" });
+                        DogStatsd.Increment("commands.errors", 
+                            1, 
+                            1, 
+                            new[] { 
+                                "err:unk-cmd", 
+                                $"mod:{cmd.Module.Name}", 
+                                $"cmd:{name}" 
+                            }
+                        );
                         break;
                 }
             }
@@ -200,31 +269,74 @@ namespace Skuld.Services.Bot
         public static async Task HandleMessageAsync(SocketMessage arg)
         {
             DogStatsd.Increment("messages.recieved");
-            if (arg.Author.IsBot || arg.Author.IsWebhook || arg.Author.Discriminator.Equals("0000") || arg.Author.DiscriminatorValue == 0 || !(arg is SocketUserMessage message)) return;
+            if (arg.Author.IsBot ||
+                arg.Author.IsWebhook ||
+                arg.Author.Discriminator.Equals("0000") ||
+                arg.Author.DiscriminatorValue == 0 ||
+                !(arg is SocketUserMessage message))
+            {
+                return;
+            }
 
             try
             {
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
-                if (message.Channel is ITextChannel)
-                {
-                    if (!await CheckPermissionToSendMessageAsync(message.Channel as ITextChannel).ConfigureAwait(false)) return;
 
-                    var gldtemp = (message.Channel as ITextChannel).Guild;
+                User suser = await Database.InsertOrGetUserAsync(arg.Author).ConfigureAwait(false);
+
+                Guild sguild = null;
+
+                if (message.Channel is ITextChannel textChannel)
+                {
+                    if (!await CheckPermissionToSendMessageAsync(message.Channel as ITextChannel).ConfigureAwait(false))
+                    {
+                        return;
+                    }
+
+                    var gldtemp = textChannel.Guild;
                     if (gldtemp != null)
                     {
                         if (BotService.DiscordClient.GetShardFor(gldtemp).ConnectionState != ConnectionState.Connected) return;
 
-                        var guser = await gldtemp.GetCurrentUserAsync().ConfigureAwait(false);
+                        var guser = await 
+                            gldtemp.GetCurrentUserAsync()
+                        .ConfigureAwait(false);
+                        var guildUser = await
+                            gldtemp.GetUserAsync(message.Author.Id)
+                        .ConfigureAwait(false);
 
-                        if (!guser.GetPermissions(message.Channel as IGuildChannel).SendMessages) return;
-                        if (!MessageTools.IsEnabledChannel(await (message.Channel as ITextChannel).Guild.GetUserAsync(message.Author.Id).ConfigureAwait(false), (ITextChannel)message.Channel)) return;
+                        if (!guser.GetPermissions(textChannel).SendMessages) return;
+                        if (!MessageTools.IsEnabledChannel(guildUser, textChannel)) return;
+
+                        sguild = await 
+                            Database.InsertOrGetGuildAsync(gldtemp)
+                        .ConfigureAwait(false);
+
+                        if (sguild.Name == null || !sguild.Name.Equals(textChannel.Guild.Name))
+                        {
+                            sguild.Name = textChannel.Guild.Name;
+
+                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                        }
+
+                        if (sguild.IconUrl == null || !sguild.IconUrl.Equals(textChannel.Guild.IconUrl))
+                        {
+                            sguild.IconUrl = textChannel.Guild.IconUrl;
+
+                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                        }
                     }
                 }
 
-                User suser = await Database.InsertOrGetUserAsync(arg.Author).ConfigureAwait(false);
-                Guild sguild = null;
+                if (suser != null &&
+                    suser.Flags.IsBitSet(DiscordUtilities.Banned) &&
+                    (!suser.Flags.IsBitSet(DiscordUtilities.BotCreator) ||
+                    !suser.Flags.IsBitSet(DiscordUtilities.BotAdmin))
+                )
+                {
+                    return;
+                }
 
-                if (suser != null && suser.Flags.IsBitSet(DiscordUtilities.Banned) && (!suser.Flags.IsBitSet(DiscordUtilities.BotCreator) || !suser.Flags.IsBitSet(DiscordUtilities.BotAdmin))) return;
                 if (!suser.IsUpToDate(message.Author))
                 {
                     suser.AvatarUrl = message.Author.GetAvatarUrl() ?? message.Author.GetDefaultAvatarUrl();
@@ -252,27 +364,6 @@ namespace Skuld.Services.Bot
                             suser.Flags -= DiscordUtilities.BotDonator;
                             await Database.SaveChangesAsync().ConfigureAwait(false);
                         }
-                    }
-                }
-
-                if (message.Channel is ITextChannel textChannel)
-                {
-                    var gld = textChannel.Guild;
-
-                    sguild = await Database.InsertOrGetGuildAsync(gld).ConfigureAwait(false);
-                    
-                    if (sguild.Name == null || !sguild.Name.Equals(textChannel.Guild.Name))
-                    {
-                        sguild.Name = textChannel.Guild.Name;
-
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                    }
-
-                    if (sguild.IconUrl == null || !sguild.IconUrl.Equals(textChannel.Guild.IconUrl))
-                    {
-                        sguild.IconUrl = textChannel.Guild.IconUrl;
-
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
                     }
                 }
 

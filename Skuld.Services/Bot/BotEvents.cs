@@ -53,6 +53,7 @@ namespace Skuld.Services.Bot
                 shard.ReactionsCleared -= Bot_ReactionsCleared;
                 shard.Log -= Bot_Log;
                 shard.UserUpdated -= Bot_UserUpdated;
+                shard.GuildUpdated -= Bot_GuildUpdated;
             }
         }
 
@@ -91,7 +92,10 @@ namespace Skuld.Services.Bot
             return Task.CompletedTask;
         }
 
-        private static async Task Shard_MessageDeleted(Cacheable<IMessage, ulong> arg1, ISocketMessageChannel arg2)
+        private static async Task Shard_MessageDeleted(
+            Cacheable<IMessage, ulong> arg1,
+            ISocketMessageChannel arg2
+        )
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -121,7 +125,10 @@ namespace Skuld.Services.Bot
             }
         }
 
-        private static async Task Shard_MessagesBulkDeleted(IReadOnlyCollection<Cacheable<IMessage, ulong>> arg1, ISocketMessageChannel arg2)
+        private static async Task Shard_MessagesBulkDeleted(
+            IReadOnlyCollection<Cacheable<IMessage, ulong>> arg1,
+            ISocketMessageChannel arg2
+        )
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             
@@ -322,10 +329,15 @@ namespace Skuld.Services.Bot
                 arg.ReactionsCleared += Bot_ReactionsCleared;
                 arg.Log += Bot_Log;
                 arg.UserUpdated += Bot_UserUpdated;
+                arg.GuildUpdated += Bot_GuildUpdated;
                 ShardsReady.Add(arg.ShardId);
             }
 
-            await arg.SetGameAsync($"{BotService.Configuration.Prefix}help | {arg.ShardId + 1}/{BotService.DiscordClient.Shards.Count}", type: ActivityType.Listening);
+            await 
+                arg
+                .SetGameAsync($"{BotService.Configuration.Prefix}help | {arg.ShardId + 1}/{BotService.DiscordClient.Shards.Count}", 
+                type: ActivityType.Listening
+            ).ConfigureAwait(false);
 
             Log.Info($"Shard #{arg.ShardId}", "Shard Ready");
         }
@@ -336,7 +348,10 @@ namespace Skuld.Services.Bot
             DogStatsd.Event("shards.connected", $"Shard {arg.ShardId} Connected", alertType: "info");
         }
 
-        private static Task Bot_ShardDisconnected(Exception arg1, DiscordSocketClient arg2)
+        private static Task Bot_ShardDisconnected(
+            Exception arg1,
+            DiscordSocketClient arg2
+        )
         {
             DogStatsd.Event($"Shard.disconnected", $"Shard {arg2.ShardId} Disconnected, error: {arg1}", alertType: "error");
             return Task.CompletedTask;
@@ -447,7 +462,10 @@ namespace Skuld.Services.Bot
             Log.Verbose(Key, $"{arg} left {arg.Guild}");
         }
 
-        private static async Task Bot_UserUpdated(SocketUser arg1, SocketUser arg2)
+        private static async Task Bot_UserUpdated(
+            SocketUser arg1,
+            SocketUser arg2
+        )
         {
             if (arg1.IsBot || arg1.IsWebhook) return;
 
@@ -562,7 +580,10 @@ namespace Skuld.Services.Bot
             Log.Verbose(Key, $"{arg} deleted in {arg.Guild}");
         }
 
-        private static async Task Bot_GuildMemberUpdated(SocketGuildUser arg1, SocketGuildUser arg2)
+        private static async Task Bot_GuildMemberUpdated(
+            SocketGuildUser arg1,
+            SocketGuildUser arg2
+        )
         {
             //Resync Data
             {
@@ -650,6 +671,31 @@ namespace Skuld.Services.Bot
                 }
             }
         }
+
+        private static async Task Bot_GuildUpdated(
+            SocketGuild arg1,
+            SocketGuild arg2
+        )
+        {
+            using SkuldDbContext Database = new SkuldDbContextFactory().CreateDbContext();
+
+            var sguild = await
+                Database.InsertOrGetGuildAsync(arg2)
+            .ConfigureAwait(false);
+
+            if (sguild.Name == null || !sguild.Name.Equals(arg2.Name))
+            {
+                sguild.Name = arg2.Name;
+            }
+
+            if (sguild.IconUrl == null || !sguild.IconUrl.Equals(arg2.IconUrl))
+            {
+                sguild.IconUrl = arg2.IconUrl;
+            }
+
+            await Database.SaveChangesAsync().ConfigureAwait(false);
+        }
+
 
         #endregion Guilds
     }
