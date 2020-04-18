@@ -458,7 +458,7 @@ namespace Skuld.Services.Bot
 
             await BotService.DiscordClient.SendDataAsync(BotService.Configuration.IsDevelopmentBuild, BotService.Configuration.DiscordGGKey, BotService.Configuration.DBotsOrgKey, BotService.Configuration.B4DToken).ConfigureAwait(false);
 
-            await database.InsertOrGetGuildAsync(arg, BotService.Configuration.Prefix, BotService.MessageServiceConfig.MoneyName, BotService.MessageServiceConfig.MoneyIcon);
+            await database.InsertOrGetGuildAsync(arg, BotService.Configuration.Prefix, BotService.MessageServiceConfig.MoneyName, BotService.MessageServiceConfig.MoneyIcon).ConfigureAwait(false);
 
             //MessageQueue.CheckForEmptyGuilds = true;
             Log.Verbose(Key, $"Just left {arg}");
@@ -536,26 +536,61 @@ namespace Skuld.Services.Bot
 
             if (arg1.Roles.Count != arg2.Roles.Count)
             {
-                var guildPersistentRoles = database.PersistentRoles.AsQueryable().Where(x => x.GuildId == arg2.Guild.Id).DistinctBy(x => x.RoleId).ToList();
-
-                guildPersistentRoles.ForEach(z =>
+                //Add Persistent Role
                 {
-                    arg2.Roles.ToList().ForEach(x =>
+                    var guildPersistentRoles = database.PersistentRoles.AsQueryable().Where(x => x.GuildId == arg2.Guild.Id).DistinctBy(x => x.RoleId).ToList();
+
+                    guildPersistentRoles.ForEach(z =>
                     {
-                        if (z.RoleId == x.Id)
+                        arg2.Roles.ToList().ForEach(x =>
                         {
-                            if (!database.PersistentRoles.Any(y => y.RoleId == z.RoleId && y.UserId == arg2.Id && y.GuildId == arg2.Guild.Id))
+                            if (z.RoleId == x.Id)
                             {
-                                database.PersistentRoles.Add(new PersistentRole
+                                if (!database.PersistentRoles.Any(y => y.RoleId == z.RoleId && y.UserId == arg2.Id && y.GuildId == arg2.Guild.Id))
                                 {
-                                    GuildId = arg2.Guild.Id,
-                                    RoleId = z.RoleId,
-                                    UserId = arg2.Id
-                                });
+                                    database.PersistentRoles.Add(new PersistentRole
+                                    {
+                                        GuildId = arg2.Guild.Id,
+                                        RoleId = z.RoleId,
+                                        UserId = arg2.Id
+                                    });
+                                }
+                            }
+                        });
+                    });
+                }
+
+                //Remove Persistent Role
+                {
+                    IEnumerable<SocketRole> roleDifference;
+
+                    if (arg1.Roles.Count > arg2.Roles.Count)
+                    {
+                        roleDifference = arg1.Roles.Except(arg2.Roles);
+                    }
+                    else
+                    {
+                        roleDifference = arg2.Roles.Except(arg1.Roles);
+                    }
+
+                    if (database.PersistentRoles.Any(x => roleDifference.Any(z => z.Id == x.Id)))
+                    {
+                        var roles = new List<ulong>();
+
+                        foreach (var rr in roleDifference)
+                        {
+                            if (database.PersistentRoles.Any(x => x.RoleId == rr.Id))
+                            {
+                                roles.Add(rr.Id);
                             }
                         }
-                    });
-                });
+
+                        database.PersistentRoles.RemoveRange(
+                            database.PersistentRoles.ToList()
+                            .Where(x => roles.Contains(x.Id) && x.UserId == arg2.Id)
+                        );
+                    }
+                }
 
                 await database.SaveChangesAsync().ConfigureAwait(false);
             }

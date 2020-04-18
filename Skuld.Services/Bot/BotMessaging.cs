@@ -65,7 +65,18 @@ namespace Skuld.Services.Bot
             CommandInfo cmd = null;
 
             if (arg1.IsSpecified)
+            {
                 cmd = arg1.Value;
+            }
+
+            var name = cmd.Module.GetModulePath();
+
+            if (cmd.Name != null)
+            {
+                name += "." + cmd.Name;
+            }
+
+            name = name.ToLowerInvariant();
 
             if (arg3.IsSuccess)
             {
@@ -75,15 +86,15 @@ namespace Skuld.Services.Bot
                 {
                     var cont = arg2 as ShardedCommandContext;
 
-                    DogStatsd.Increment("commands.total.threads", 1, 1, new[] { $"module:{cmd.Module.Name.ToLowerInvariant()}", $"cmd:{cmd.Name.ToLowerInvariant()}" });
+                    DogStatsd.Increment("commands.total.threads", 1, 1, new[] { $"module:{cmd.Module.Name.ToLowerInvariant()}", $"cmd:{name}" });
 
-                    DogStatsd.Histogram("commands.latency", watch.ElapsedMilliseconds(), 0.5, new[] { $"module:{cmd.Module.Name.ToLowerInvariant()}", $"cmd:{cmd.Name.ToLowerInvariant()}" });
+                    DogStatsd.Histogram("commands.latency", watch.ElapsedMilliseconds(), 0.5, new[] { $"module:{cmd.Module.Name.ToLowerInvariant()}", $"cmd:{name}" });
 
                     var usr = await Database.InsertOrGetUserAsync(cont.User).ConfigureAwait(false);
 
                     await InsertCommandAsync(cmd, usr).ConfigureAwait(false);
 
-                    DogStatsd.Increment("commands.processed", 1, 1, new[] { $"module:{cmd.Module.Name.ToLowerInvariant()}", $"cmd:{cmd.Name.ToLowerInvariant()}" });
+                    DogStatsd.Increment("commands.processed", 1, 1, new[] { $"module:{cmd.Module.Name.ToLowerInvariant()}", $"cmd:{name}" });
                 }
             }
             else
@@ -201,7 +212,9 @@ namespace Skuld.Services.Bot
                     var gldtemp = (message.Channel as ITextChannel).Guild;
                     if (gldtemp != null)
                     {
-                        var guser = await gldtemp.GetUserAsync(BotService.DiscordClient.CurrentUser.Id).ConfigureAwait(false);
+                        if (BotService.DiscordClient.GetShardFor(gldtemp).ConnectionState != ConnectionState.Connected) return;
+
+                        var guser = await gldtemp.GetCurrentUserAsync().ConfigureAwait(false);
 
                         if (!guser.GetPermissions(message.Channel as IGuildChannel).SendMessages) return;
                         if (!MessageTools.IsEnabledChannel(await (message.Channel as ITextChannel).Guild.GetUserAsync(message.Author.Id).ConfigureAwait(false), (ITextChannel)message.Channel)) return;
@@ -351,7 +364,14 @@ namespace Skuld.Services.Bot
 
         private static async Task InsertCommandAsync(CommandInfo command, User user)
         {
-            var name = command.Name ?? command.Module.Name;
+            var name = command.Module.GetModulePath();
+
+            if(command.Name != null)
+            {
+                name += "." + command.Name;
+            }
+
+            name = name.ToLowerInvariant();
 
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
