@@ -367,7 +367,10 @@ namespace Skuld.Services.Bot
                         {
                             await arg.AddRoleAsync(arg.Guild.GetRole(persistentRole.RoleId)).ConfigureAwait(false);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Log.Error("UsrJoin", ex.Message, ex);
+                        }
                     }
                 }
             }
@@ -390,6 +393,32 @@ namespace Skuld.Services.Bot
                         var channel = arg.Guild.GetTextChannel(gld.JoinChannel);
                         var message = gld.JoinMessage.ReplaceGuildEventMessage(arg as IUser, arg.Guild as SocketGuild);
                         await channel.SendMessageAsync(message).ConfigureAwait(false);
+                    }
+                }
+            }
+
+            {
+                using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
+
+                var feats = database.Features.FirstOrDefault(x => x.Id == arg.Guild.Id);
+
+                if(feats.Experience)
+                {
+                    var rewards = database.LevelRewards.ToList().Where(x => x.GuildId == arg.Guild.Id);
+
+                    var usrLvl = database.UserXp.FirstOrDefault(x => x.GuildId == arg.Guild.Id && x.UserId == arg.Id);
+
+                    var rolesToGive = rewards.Where(x => x.LevelRequired <= usrLvl.Level).Select(z=>z.RoleId);
+
+                    var roles = arg.Guild.Roles.Where(z => rolesToGive.Contains(z.Id));
+
+                    try
+                    {
+                        await arg.AddRolesAsync(roles).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("UsrJoin", ex.Message, ex);
                     }
                 }
             }
