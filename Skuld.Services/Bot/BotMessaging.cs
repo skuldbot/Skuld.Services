@@ -76,7 +76,7 @@ namespace Skuld.Services.Bot
                 name += "." + cmd.Name;
             }
 
-            name = name.ToLowerInvariant();
+            name = name.ToLowerInvariant().Replace(" ", "-").Replace("/", ".");
 
             if (arg3.IsSuccess)
             {
@@ -371,7 +371,7 @@ namespace Skuld.Services.Bot
                 name += "." + command.Name;
             }
 
-            name = name.ToLowerInvariant();
+            name = name.ToLowerInvariant().Replace(" ", "-").Replace("/", ".");
 
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
