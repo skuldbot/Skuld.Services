@@ -364,14 +364,33 @@ namespace Skuld.Services.Bot
 
         private static async Task InsertCommandAsync(CommandInfo command, User user)
         {
-            var name = command.Module.GetModulePath();
+            var name = command.Name ?? command.Module.Name;
 
-            if(command.Name != null)
+            if(name == "")
             {
-                name += "." + command.Name;
+                if(command.Module.IsSubmodule)
+                {
+                    ModuleInfo parentModule = command.Module.Parent;
+                    while(name == "")
+                    {
+                        name = parentModule.Name;
+
+                        if(name == "" && parentModule.IsSubmodule)
+                        {
+                            parentModule = parentModule.Parent;
+                        }
+                        else if (name == "" && !parentModule.IsSubmodule)
+                        {
+                            break;
+                        }
+                    }
+                }
             }
 
-            name = name.ToLowerInvariant().Replace(" ", "-").Replace("/", ".");
+            if(name == "")
+            {
+                return;
+            }
 
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
