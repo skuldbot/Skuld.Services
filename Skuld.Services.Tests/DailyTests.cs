@@ -35,8 +35,8 @@ namespace Skuld.Services.Tests
             var standardMaxStreakAmount = standardMaxStreak.GetDailyAmount(config);
 
             Assert.Equal(300ul, standardAmount);
-            Assert.Equal(1800ul, standardStreakAmount);
-            Assert.Equal(15300ul, standardMaxStreakAmount);
+            Assert.Equal(1500ul, standardStreakAmount);
+            Assert.Equal(15000ul, standardMaxStreakAmount);
         }
 
         [Fact]
@@ -67,8 +67,8 @@ namespace Skuld.Services.Tests
             var donatorMaxStreakAmount = donatorMaxStreak.GetDailyAmount(config);
 
             Assert.Equal(600ul, donatorAmount);
-            Assert.Equal(3300ul, donatorStreakAmount);
-            Assert.Equal(30300ul, donatorMaxStreakAmount);
+            Assert.Equal(3000ul, donatorStreakAmount);
+            Assert.Equal(30000ul, donatorMaxStreakAmount);
         }
     }
 }
