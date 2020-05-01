@@ -53,7 +53,7 @@ namespace Skuld.Services.Reminders
                                 }
                                 catch (Exception ex)
                                 {
-                                    Log.Critical("Reminders", ex.Message, ex);
+                                    Log.Critical("Reminders", ex.Message, null, ex);
                                     DogStatsd.Increment("reminders.error");
                                     Database.Reminders.RemoveRange(Database.Reminders.ToList().Where(x => x.UserId == reminder.UserId));
                                 }

@@ -1,9 +1,11 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Verification;
 using Skuld.Core.Utilities;
 using Skuld.Models;
+using Skuld.Services.Bot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -182,6 +184,11 @@ namespace Skuld.Services.Guilds.Starboard
 
         public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
         {
+            var context = new ShardedCommandContext(
+                BotService.DiscordClient,
+                message as SocketUserMessage
+            );
+
             try
             {
                 if (channel is ITextChannel guildChannel)
@@ -326,12 +333,17 @@ namespace Skuld.Services.Guilds.Starboard
             }
             catch (Exception ex)
             {
-                Log.Critical(Key, ex.Message, ex);
+                Log.Critical(Key, ex.Message, context, ex);
             }
         }
         
         public static async Task ExecuteRemovalAsync(IMessage message, ulong reactorId)
         {
+            var context = new ShardedCommandContext(
+                BotService.DiscordClient,
+                message as SocketUserMessage
+            );
+
             try
             {
                 if (message.Channel is IGuildChannel guildChannel)
@@ -419,7 +431,7 @@ namespace Skuld.Services.Guilds.Starboard
             }
             catch (Exception ex)
             {
-                Log.Critical(Key, ex.Message, ex);
+                Log.Critical(Key, ex.Message, context, ex);
             }
         }
     }

@@ -205,7 +205,7 @@ namespace Skuld.Services.Bot
             }
             catch (Exception ex)
             {
-                Log.Critical("HostService", ex.Message, ex);
+                Log.Critical("HostService", ex.Message, null, ex);
             }
         }
 

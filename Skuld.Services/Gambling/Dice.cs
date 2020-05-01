@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
 
-namespace Skuld.Bot.Models
+namespace Skuld.Services.Models
 {
     public class Dice
     {
-        private List<Die> dies;
+        private readonly List<Die> dies;
 
         public Dice()
         {

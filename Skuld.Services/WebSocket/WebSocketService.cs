@@ -6,9 +6,11 @@ using Skuld.Core;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
 using Skuld.Models;
+using Skuld.Services.Bot;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Skuld.Services.WebSocket
@@ -246,7 +248,7 @@ namespace Skuld.Services.WebSocket
                     $"\"Guilds\":{Client.Guilds.Count}," +
                     //$"\"Users\":{BotService.Users}," +
                     $"\"Shards\":{Client.Shards.Count}," +
-                    //$"\"Commands\":{BotService.CommandService.Commands.Count()}," +
+                    $"\"Commands\":{BotService.CommandService.Commands.Count()}," +
                     $"\"MemoryUsed\":\"{mem}\"}}";
 
                 await conn.Send(JsonConvert.SerializeObject(rawjson)).ConfigureAwait(false);

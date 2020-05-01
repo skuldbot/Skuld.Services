@@ -1,9 +1,11 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using Skuld.Core;
 using Skuld.Core.Extensions;
 using Skuld.Core.Utilities;
 using Skuld.Models;
+using Skuld.Services.Bot;
 using Skuld.Services.Extensions;
 using System;
 using System.Collections.Generic;
@@ -17,6 +19,11 @@ namespace Skuld.Services.Accounts.Experience
         public static async Task HandleExperienceAsync(IUserMessage message, IUser user, IGuild guild)
         {
             if (user.IsBot || user.IsWebhook) return;
+
+            var context = new ShardedCommandContext(
+                BotService.DiscordClient,
+                message as SocketUserMessage
+            );
 
             try
             {
@@ -40,25 +47,37 @@ namespace Skuld.Services.Accounts.Experience
             }
             catch(Exception ex)
             {
-                Log.Error("ExperienceService", ex.Message, ex);
+                Log.Error("ExperienceService", ex.Message, context, ex);
             }
         }
 
         static string GetMessage(IUser user, IGuild guild, Guild dbGuild, IUserMessage message, ulong level, IEnumerable<LevelRewards> roles, bool showFromVoice = false)
         {
+            var context = new ShardedCommandContext(
+                BotService.DiscordClient,
+                message as SocketUserMessage
+            );
+
             var msg = dbGuild.LevelUpMessage;
 
-            string rles = "None at this role";
+            string rles = "";
 
-            if (roles.Any())
+            if(guild != null)
             {
-                if (roles.Count() <= 10)
+                if (roles.Any())
                 {
-                    rles = string.Join(", ", roles.Select(x => guild.GetRole(x.RoleId).Name).ToArray());
+                    if (roles.Count() <= 10)
+                    {
+                        rles = string.Join(", ", roles.Select(x => guild.GetRole(x.RoleId)?.Name).ToArray());
+                    }
+                    else
+                    {
+                        rles = $"{roles.Count().ToFormattedString()} roles";
+                    }
                 }
                 else
                 {
-                    rles = $"{roles.Count().ToFormattedString()} roles";
+                    rles = "None at this role";
                 }
             }
 
@@ -75,7 +94,7 @@ namespace Skuld.Services.Accounts.Experience
                 catch (Exception ex)
                 {
                     msg.ReplaceFirst("-jl", "JUMPLINK NOT AVAILABLE");
-                    Log.Error("ExperienceService", ex.Message, ex);
+                    Log.Error("ExperienceService", ex.Message, context, ex);
                 }
             }
             else
@@ -98,8 +117,8 @@ namespace Skuld.Services.Accounts.Experience
             return Database.LevelRewards.ToList().Where(x => x.GuildId == guildId && x.Automatic == automatic);
         }
 
-        public static Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> DefaultAction = new Action<IGuildUser, IGuild, Guild, IUserMessage, ulong>(
-            async (user, guild, dbGuild, message, level) =>
+        public static Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong> DefaultAction = new Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong>(
+            async (user, guild, dbGuild, context, level) =>
             {
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -113,7 +132,7 @@ namespace Skuld.Services.Accounts.Experience
                 List<LevelRewards> roles = new List<LevelRewards>(autoRoles);
                 roles.AddRange(nonautoRoles);
 
-                var msg = GetMessage(user, guild, dbGuild, message, level, roles);
+                var msg = GetMessage(user, guild, dbGuild, context.Message, level, roles);
 
                 if (autoRoles.Any(x => x.LevelRequired == level))
                 {
@@ -170,7 +189,7 @@ namespace Skuld.Services.Accounts.Experience
                             else
                             {
                                 await
-                                    message.Channel.SendMessageAsync(msg)
+                                    context.Message.Channel.SendMessageAsync(msg)
                                 .ConfigureAwait(false);
                             }
                         }
@@ -186,7 +205,13 @@ namespace Skuld.Services.Accounts.Experience
                             }
                             catch (Exception ex)
                             {
-                                Log.Error("ExperienceService", "Failed sending level up message to DMs, most likely disabled DMs", ex);
+                                Log.Error(
+                                    "ExperienceService", 
+                                    "Failed sending level up message to DMs, " +
+                                    "most likely disabled DMs", 
+                                    context,
+                                    ex
+                                );
                             }
                         }
                         break;
@@ -197,8 +222,8 @@ namespace Skuld.Services.Accounts.Experience
                 }
             });
 
-        public static Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> VoiceAction = new Action<IGuildUser, IGuild, Guild, IUserMessage, ulong>(
-            async (user, guild, dbGuild, message, level) =>
+        public static Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong> VoiceAction = new Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong>(
+            async (user, guild, dbGuild, context, level) =>
             {
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -266,12 +291,6 @@ namespace Skuld.Services.Accounts.Experience
                                     .ConfigureAwait(false);
                                 }
                             }
-                            else
-                            {
-                                await
-                                    message.Channel.SendMessageAsync(msg)
-                                .ConfigureAwait(false);
-                            }
                         }
                         break;
 
@@ -285,7 +304,13 @@ namespace Skuld.Services.Accounts.Experience
                             }
                             catch (Exception ex)
                             {
-                                Log.Error("ExperienceService", "Failed sending level up message to DMs, most likely disabled DMs", ex);
+                                Log.Error(
+                                    "ExperienceService", 
+                                    "Failed sending level up message to DMs, " +
+                                    "most likely disabled DMs", 
+                                    context,
+                                    ex
+                                );
                             }
                         }
                         break;

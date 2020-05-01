@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Skuld.Core;
@@ -67,23 +68,23 @@ namespace Skuld.Services.Bot
                     break;
 
                 case LogSeverity.Critical:
-                    Log.Critical(key, arg.Message, arg.Exception);
+                    Log.Critical(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Warning:
-                    Log.Warning(key, arg.Message, arg.Exception);
+                    Log.Warning(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Verbose:
-                    Log.Verbose(key, arg.Message, arg.Exception);
+                    Log.Verbose(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Error:
-                    Log.Error(key, arg.Message, arg.Exception);
+                    Log.Error(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Debug:
-                    Log.Debug(key, arg.Message, arg.Exception);
+                    Log.Debug(key, arg.Message, null, arg.Exception);
                     break;
 
                 default:
@@ -165,8 +166,14 @@ namespace Skuld.Services.Bot
         private static async Task Bot_ReactionAdded(Cacheable<IUserMessage, ulong> arg1, ISocketMessageChannel arg2, SocketReaction arg3)
         {
             DogStatsd.Increment("messages.reactions.added");
-
             IUser usr;
+
+            var msg = arg1.HasValue ? arg1.Value : await arg1.GetOrDownloadAsync().ConfigureAwait(false);
+
+            ShardedCommandContext context = new ShardedCommandContext(
+                BotService.DiscordClient,
+                msg as SocketUserMessage
+            );
 
             if (!arg3.User.IsSpecified) return;
             else
@@ -178,11 +185,9 @@ namespace Skuld.Services.Bot
 
             if (arg2 is IGuildChannel)
             {
-                var message = arg1.HasValue ? arg1.Value : await arg1.GetOrDownloadAsync().ConfigureAwait(false);
+                await PinningService.ExecuteAdditionAsync(context.Message, arg2, arg3).ConfigureAwait(false);
 
-                await PinningService.ExecuteAdditionAsync(message, arg2, arg3).ConfigureAwait(false);
-
-                await StarboardService.ExecuteAdditionAsync(message, arg2, arg3).ConfigureAwait(false);
+                await StarboardService.ExecuteAdditionAsync(context.Message, arg2, arg3).ConfigureAwait(false);
             }
 
             if (arg2.Id == BotService.Configuration.IssueChannel)
@@ -197,8 +202,6 @@ namespace Skuld.Services.Bot
                     {
                         if (arg1.HasValue)
                         {
-                            var msg = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
-
                             var message = Database.Issues.FirstOrDefault(x => x.IssueChannelMessageId == arg1.Id);
                             if (message != null)
                             {
@@ -247,7 +250,12 @@ namespace Skuld.Services.Bot
                                         }
                                         catch (Exception ex)
                                         {
-                                            Log.Error("Git-" + SkuldAppContext.GetCaller(), ex.Message, ex);
+                                            Log.Error(
+                                                "Git-" + SkuldAppContext.GetCaller(),
+                                                ex.Message,
+                                                context,
+                                                ex
+                                            );
                                         }
                                     }
                                 }
@@ -277,7 +285,11 @@ namespace Skuld.Services.Bot
                     }
                     catch (Exception ex)
                     {
-                        Log.Critical(Key, ex.Message, ex);
+                        Log.Critical(Key, 
+                            ex.Message,
+                            context,
+                            ex
+                        );
                     }
                 }
             }
@@ -365,12 +377,14 @@ namespace Skuld.Services.Bot
         {
             DogStatsd.Increment("guild.users.joined");
 
+            //Insert into Database
             {
                 using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
                 await database.InsertOrGetUserAsync(arg as IUser).ConfigureAwait(false);
             }
 
+            //Persistent Roles
             {
                 using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -384,12 +398,13 @@ namespace Skuld.Services.Bot
                         }
                         catch (Exception ex)
                         {
-                            Log.Error("UsrJoin", ex.Message, ex);
+                            Log.Error("UsrJoin", ex.Message, null, ex);
                         }
                     }
                 }
             }
 
+            //Join Message
             {
                 using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -412,6 +427,7 @@ namespace Skuld.Services.Bot
                 }
             }
 
+            //Experience Roles
             {
                 using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -425,20 +441,41 @@ namespace Skuld.Services.Bot
 
                     var rolesToGive = rewards.Where(x => x.LevelRequired <= usrLvl.Level).Select(z=>z.RoleId);
 
-                    var roles = arg.Guild.Roles.Where(z => rolesToGive.Contains(z.Id));
+                    if(feats.StackingRoles)
+                    {
+                        var roles = arg.Guild.Roles.Where(z => rolesToGive.Contains(z.Id));
 
-                    try
-                    {
-                        await arg.AddRolesAsync(roles).ConfigureAwait(false);
+                        try
+                        {
+                            await arg.AddRolesAsync(roles).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error("UsrJoin", ex.Message, null, ex);
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Log.Error("UsrJoin", ex.Message, ex);
+                        var r = rewards
+                            .Where(x => x.LevelRequired <= usrLvl.Level)
+                            .OrderByDescending(x => x.LevelRequired)
+                            .FirstOrDefault();
+
+                        var role = arg.Guild.Roles.FirstOrDefault(z => rolesToGive.Contains(r.Id));
+
+                        try
+                        {
+                            await arg.AddRoleAsync(role).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error("UsrJoin", ex.Message, null, ex);
+                        }
                     }
                 }
             }
 
-            Log.Verbose(Key, $"{arg} joined {arg.Guild}");
+            Log.Verbose(Key, $"{arg} joined {arg.Guild}", null);
         }
 
         private static async Task Bot_UserLeft(SocketGuildUser arg)
@@ -459,7 +496,7 @@ namespace Skuld.Services.Bot
                 }
             }
 
-            Log.Verbose(Key, $"{arg} left {arg.Guild}");
+            Log.Verbose(Key, $"{arg} left {arg.Guild}", null);
         }
 
         private static async Task Bot_UserUpdated(
@@ -497,7 +534,7 @@ namespace Skuld.Services.Bot
 
             //MessageQueue.CheckForEmptyGuilds = true;
 
-            Log.Verbose(Key, $"Just left {arg}");
+            Log.Verbose(Key, $"Just left {arg}", null);
         }
 
         private static async Task Bot_JoinedGuild(SocketGuild arg)
@@ -511,7 +548,7 @@ namespace Skuld.Services.Bot
             await database.InsertOrGetGuildAsync(arg, BotService.Configuration.Prefix, BotService.MessageServiceConfig.MoneyName, BotService.MessageServiceConfig.MoneyIcon).ConfigureAwait(false);
 
             //MessageQueue.CheckForEmptyGuilds = true;
-            Log.Verbose(Key, $"Just left {arg}");
+            Log.Verbose(Key, $"Just left {arg}", null);
         }
 
         private static async Task Bot_RoleDeleted(SocketRole arg)
@@ -577,7 +614,7 @@ namespace Skuld.Services.Bot
 
             #endregion IAmRoles
 
-            Log.Verbose(Key, $"{arg} deleted in {arg.Guild}");
+            Log.Verbose(Key, $"{arg} deleted in {arg.Guild}", null);
         }
 
         private static async Task Bot_GuildMemberUpdated(

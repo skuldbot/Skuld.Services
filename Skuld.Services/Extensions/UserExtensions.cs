@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using NodaTime;
 using Skuld.Core.Extensions;
@@ -8,9 +9,11 @@ using Skuld.Core.Utilities;
 using Skuld.Models;
 using Skuld.Services.Accounts.Banking.Models;
 using Skuld.Services.Banking;
+using Skuld.Services.Bot;
 using StatsdClient;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,9 +27,14 @@ namespace Skuld.Services.Extensions
             ulong amount,
             IGuild guild,
             IUserMessage message,
-            Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action,
+            Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong> action,
             bool skipTimeCheck = false)
         {
+            var context = new ShardedCommandContext(
+                BotService.DiscordClient,
+                message as SocketUserMessage
+            );
+
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             UserExperience luxp;
 
@@ -59,7 +67,14 @@ namespace Skuld.Services.Extensions
                 if (check >= 60 || skipTimeCheck)
                 {
                     var result = await
-                        PerformLevelupCheckAsync(luxp, amount, user, guild, message, action)
+                        PerformLevelupCheckAsync(
+                            luxp, 
+                            amount, 
+                            user, 
+                            guild, 
+                            context, 
+                            action
+                        )
                     .ConfigureAwait(false);
 
                     didLevelUp = result.Successful;
@@ -87,7 +102,14 @@ namespace Skuld.Services.Extensions
                 };
 
                 var result = await 
-                    PerformLevelupCheckAsync(xp, amount, user, guild, message, action)
+                    PerformLevelupCheckAsync(
+                        xp, 
+                        amount, 
+                        user, 
+                        guild, 
+                        context, 
+                        action
+                    )
                 .ConfigureAwait(false);
 
                 didLevelUp = result.Successful;
@@ -104,8 +126,8 @@ namespace Skuld.Services.Extensions
             ulong amount,
             User user,
             IGuild guild,
-            IUserMessage message,
-            Action<IGuildUser, IGuild, Guild, IUserMessage, ulong> action,
+            ShardedCommandContext context,
+            Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong> action,
             bool skipTimeCheck = false)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
@@ -131,7 +153,7 @@ namespace Skuld.Services.Extensions
                     action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
                                   guild,
                                   await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
-                                  message,
+                                  context,
                                   xp.Level + levelAmount);
                 }
             }
@@ -147,7 +169,16 @@ namespace Skuld.Services.Extensions
                     xp.LastGranted = now;
                 }
 
-                Log.Verbose("XPGrant", $"User leveled up {levelAmount} time{(levelAmount >= 2 ? "s" : (levelAmount < 1 ? "s" : ""))}");
+                var suffix = "";
+
+                if (levelAmount >= 2 || levelAmount < 1)
+                {
+                    suffix = "s";
+                }
+
+                Log.Verbose("XPGrant", 
+                    $"User leveled up {levelAmount} time{suffix}",
+                    context);
 
                 return EventResult<UserExperience>.FromSuccess(xp);
             }
@@ -249,39 +280,37 @@ namespace Skuld.Services.Extensions
 
         public static bool IsStreakReset(this User target, SkuldConfig config)
         {
-            var limit = target.LastDaily.FromEpoch().Date.AddDays(target.IsDonator ? config.StreakLimitDays * 2 : config.StreakLimitDays).ToEpoch();
+            var days = target.IsDonator ? config.StreakLimitDays * 2 : config.StreakLimitDays;
+
+            var limit = target.LastDaily.FromEpoch().Date.AddDays(days).ToEpoch();
 
             return DateTime.UtcNow.Date.ToEpoch() > limit;
         }
 
-        public static ulong GetDailyAmount(this User target, SkuldConfig config)
+        public static ulong GetDailyAmount(
+            [NotNull] this User target, 
+            [NotNull] SkuldConfig config
+        )
         {
             var daily = config.DailyAmount;
+
+            var mod = target.IsDonator ? 2U : 1;
 
             if (target.Streak > 0)
             {
                 var amount = daily * Math.Min(50, target.Streak);
 
-                if (target.IsDonator)
-                {
-                    return daily + amount * 2;
-                }
-                else
-                {
-                    return daily + amount;
-                }
+                return amount * mod;
             }
-            if (target.IsDonator)
-            {
-                return daily * 2;
-            }
-            else
-            {
-                return daily;
-            }
+
+            return daily * mod;
         }
 
-        public static bool ProcessDaily(this User target, ulong amount, User donor = null)
+        public static bool ProcessDaily(
+            this User target, 
+            ulong amount, 
+            User donor = null
+        )
         {
             bool wasSuccessful = false;
 

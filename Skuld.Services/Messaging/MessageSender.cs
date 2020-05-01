@@ -59,7 +59,7 @@ namespace Skuld.Services.Messaging
             }
             catch (Exception ex)
             {
-                Log.Warning(Key, "Error dispatching Message, printed exception to logs.", ex);
+                Log.Warning(Key, "Error dispatching Message, printed exception to logs.", null, ex);
                 await msg.ModifyAsync(x => { x.Embed = embed ?? null; x.Content = "I couldn't send the message to your DMs, so I sent it here instead\n\n" + message; }).ConfigureAwait(false);
                 return msg;
             }

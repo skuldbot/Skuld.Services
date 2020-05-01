@@ -34,15 +34,15 @@ namespace Skuld.Services.Bot
             switch (arg.Severity)
             {
                 case LogSeverity.Error:
-                    Log.Error(key, arg.Message, arg.Exception);
+                    Log.Error(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Debug:
-                    Log.Debug(key, arg.Message, arg.Exception);
+                    Log.Debug(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Critical:
-                    Log.Critical(key, arg.Message, arg.Exception);
+                    Log.Critical(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Info:
@@ -50,11 +50,11 @@ namespace Skuld.Services.Bot
                     break;
 
                 case LogSeverity.Verbose:
-                    Log.Verbose(key, arg.Message, arg.Exception);
+                    Log.Verbose(key, arg.Message, null, arg.Exception);
                     break;
 
                 case LogSeverity.Warning:
-                    Log.Warning(key, arg.Message, arg.Exception);
+                    Log.Warning(key, arg.Message, null, arg.Exception);
                     break;
             }
             return Task.CompletedTask;
@@ -165,7 +165,9 @@ namespace Skuld.Services.Bot
 
                 if (arg3.Error != CommandError.UnknownCommand && displayerror)
                 {
-                    Log.Error(Key, "Error with command, Error is: " + arg3);
+                    Log.Error(Key, 
+                        "Error with command, Error is: " + arg3, 
+                        arg2 as ShardedCommandContext);
 
                     await EmbedExtensions.FromError(arg3.ErrorReason, arg2)
                         .QueueMessageAsync(arg2)
@@ -278,6 +280,11 @@ namespace Skuld.Services.Bot
                 return;
             }
 
+            ShardedCommandContext context = new ShardedCommandContext(
+                BotService.DiscordClient, 
+                message
+            );
+
             try
             {
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
@@ -286,45 +293,51 @@ namespace Skuld.Services.Bot
 
                 Guild sguild = null;
 
-                if (message.Channel is ITextChannel textChannel)
+                if (context.Guild != null)
                 {
-                    if (!await CheckPermissionToSendMessageAsync(message.Channel as ITextChannel).ConfigureAwait(false))
+                    if (!await CheckPermissionToSendMessageAsync(context.Channel as ITextChannel).ConfigureAwait(false))
                     {
                         return;
                     }
 
-                    var gldtemp = textChannel.Guild;
-                    if (gldtemp != null)
+                    if (BotService.DiscordClient.GetShardFor(context.Guild).ConnectionState != ConnectionState.Connected)
                     {
-                        if (BotService.DiscordClient.GetShardFor(gldtemp).ConnectionState != ConnectionState.Connected) return;
+                        return;
+                    }
 
-                        var guser = await 
-                            gldtemp.GetCurrentUserAsync()
-                        .ConfigureAwait(false);
-                        var guildUser = await
-                            gldtemp.GetUserAsync(message.Author.Id)
-                        .ConfigureAwait(false);
+                    var guser = await
+                        (context.Guild as IGuild).GetCurrentUserAsync()
+                    .ConfigureAwait(false);
 
-                        if (!guser.GetPermissions(textChannel).SendMessages) return;
-                        if (!MessageTools.IsEnabledChannel(guildUser, textChannel)) return;
+                    var guildMem = await
+                        (context.Guild as IGuild).GetUserAsync(message.Author.Id)
+                    .ConfigureAwait(false);
 
-                        sguild = await 
-                            Database.InsertOrGetGuildAsync(gldtemp)
-                        .ConfigureAwait(false);
+                    if (!guser.GetPermissions(context.Channel as IGuildChannel).SendMessages)
+                    {
+                        return;
+                    }
+                    if (!MessageTools.IsEnabledChannel(guildMem, context.Channel as ITextChannel))
+                    {
+                        return;
+                    }
 
-                        if (sguild.Name == null || !sguild.Name.Equals(textChannel.Guild.Name))
-                        {
-                            sguild.Name = textChannel.Guild.Name;
+                    sguild = await
+                        Database.InsertOrGetGuildAsync(context.Guild)
+                    .ConfigureAwait(false);
 
-                            await Database.SaveChangesAsync().ConfigureAwait(false);
-                        }
+                    if (sguild.Name == null || !sguild.Name.Equals(context.Guild.Name))
+                    {
+                        sguild.Name = context.Guild.Name;
 
-                        if (sguild.IconUrl == null || !sguild.IconUrl.Equals(textChannel.Guild.IconUrl))
-                        {
-                            sguild.IconUrl = textChannel.Guild.IconUrl;
+                        await Database.SaveChangesAsync().ConfigureAwait(false);
+                    }
 
-                            await Database.SaveChangesAsync().ConfigureAwait(false);
-                        }
+                    if (sguild.IconUrl == null || !sguild.IconUrl.Equals(context.Guild.IconUrl))
+                    {
+                        sguild.IconUrl = context.Guild.IconUrl;
+
+                        await Database.SaveChangesAsync().ConfigureAwait(false);
                     }
                 }
 
@@ -387,8 +400,6 @@ namespace Skuld.Services.Bot
 
                 if (!MessageTools.HasPrefix(message, BotService.Configuration.Prefix, BotService.Configuration.AltPrefix, sguild?.Prefix)) return;
 
-                ShardedCommandContext context = new ShardedCommandContext(BotService.DiscordClient, message);
-
                 if (sguild != null)
                 {
                     if (!Database.Modules.Any(x => x.Id == sguild.Id))
@@ -427,7 +438,7 @@ namespace Skuld.Services.Bot
             }
             catch (Exception ex)
             {
-                Log.Critical(Key, ex.Message, ex);
+                Log.Critical(Key, ex.Message, context, ex);
             }
         }
 
@@ -445,7 +456,7 @@ namespace Skuld.Services.Bot
             }
             catch (Exception ex)
             {
-                Log.Critical("CmdService", ex.Message, ex);
+                Log.Critical("CmdService", ex.Message, context, ex);
             }
         }
 

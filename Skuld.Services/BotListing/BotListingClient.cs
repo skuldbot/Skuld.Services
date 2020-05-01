@@ -18,9 +18,13 @@ namespace Skuld.Services.BotListing
         private static void LogData(string key, string message, bool error)
         {
             if (error)
-                Log.Error(key, message);
+            { 
+                Log.Error(key, message, null);
+            }
             else
+            { 
                 Log.Info(key, message);
+            }
         }
 
         public static async Task SendDataAsync(this DiscordShardedClient client, bool isDev, string discordggtoken, string dbltoken, string b4dtoken)

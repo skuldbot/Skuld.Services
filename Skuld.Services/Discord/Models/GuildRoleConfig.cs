@@ -7,10 +7,10 @@ namespace Skuld.Services.Discord.Models
 {
     public class GuildRoleConfig
     {
-        public ulong Cost;
-        public ulong RequireLevel;
+        public ulong? Cost;
+        public ulong? RequireLevel;
         public IRole RequiredRole;
-        public bool Automatic;
+        public bool? Automatic;
 
         public GuildRoleConfig()
         {
