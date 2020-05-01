@@ -30,10 +30,14 @@ namespace Skuld.Services.Extensions
             Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong> action,
             bool skipTimeCheck = false)
         {
-            var context = new ShardedCommandContext(
-                BotService.DiscordClient,
-                message as SocketUserMessage
-            );
+            ShardedCommandContext context = null;
+            if(message != null)
+            {
+                context = new ShardedCommandContext(
+                    BotService.DiscordClient,
+                    message as SocketUserMessage
+                );
+            }
 
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             UserExperience luxp;
