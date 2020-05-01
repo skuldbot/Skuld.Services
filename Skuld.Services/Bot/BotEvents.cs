@@ -168,7 +168,9 @@ namespace Skuld.Services.Bot
             DogStatsd.Increment("messages.reactions.added");
             IUser usr;
 
-            var msg = arg1.HasValue ? arg1.Value : await arg1.GetOrDownloadAsync().ConfigureAwait(false);
+            var msg = await arg1.GetOrDownloadAsync().ConfigureAwait(false);
+
+            if (msg == null) return;
 
             ShardedCommandContext context = new ShardedCommandContext(
                 BotService.DiscordClient,
