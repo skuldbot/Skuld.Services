@@ -184,11 +184,6 @@ namespace Skuld.Services.Guilds.Starboard
 
         public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
         {
-            var context = new ShardedCommandContext(
-                BotService.DiscordClient,
-                message as SocketUserMessage
-            );
-
             try
             {
                 if (channel is ITextChannel guildChannel)
@@ -333,17 +328,12 @@ namespace Skuld.Services.Guilds.Starboard
             }
             catch (Exception ex)
             {
-                Log.Critical(Key, ex.Message, context, ex);
+                Log.Critical(Key, ex.Message, null, ex);
             }
         }
         
         public static async Task ExecuteRemovalAsync(IMessage message, ulong reactorId)
         {
-            var context = new ShardedCommandContext(
-                BotService.DiscordClient,
-                message as SocketUserMessage
-            );
-
             try
             {
                 if (message.Channel is IGuildChannel guildChannel)
@@ -431,7 +421,7 @@ namespace Skuld.Services.Guilds.Starboard
             }
             catch (Exception ex)
             {
-                Log.Critical(Key, ex.Message, context, ex);
+                Log.Critical(Key, ex.Message, null, ex);
             }
         }
     }

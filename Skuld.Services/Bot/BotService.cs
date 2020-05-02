@@ -11,6 +11,7 @@ using NodaTime;
 using Octokit;
 using Skuld.APIS;
 using Skuld.Core;
+using Skuld.Core.Extensions;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
 using Skuld.Discord.TypeReaders;
@@ -26,6 +27,7 @@ using SteamWebAPI2.Interfaces;
 using SysEx.Net;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -48,7 +50,11 @@ namespace Skuld.Services.Bot
 
         public static WebSocketService WebSocket;
 
-        public static async Task ConfigureBotAsync(SkuldConfig inConfig, DiscordSocketConfig config, CommandServiceConfig cmdConfig, MessageServiceConfig msgConfig)
+        public static async Task ConfigureBotAsync(SkuldConfig inConfig, 
+            DiscordSocketConfig config, 
+            CommandServiceConfig cmdConfig, 
+            MessageServiceConfig msgConfig
+        )
         {
             Configuration = inConfig;
 
@@ -64,7 +70,9 @@ namespace Skuld.Services.Bot
 
             BotMessaging.Configure();
 
-            await ConfigureCommandServiceAsync().ConfigureAwait(false);
+            await 
+                ConfigureCommandServiceAsync()
+            .ConfigureAwait(false);
         }
 
         public static async Task StartBotAsync()
@@ -116,7 +124,12 @@ namespace Skuld.Services.Bot
                 CommandService.AddTypeReader<DateTimeZone>(new DateTimeZoneTypeReader());
                 CommandService.AddTypeReader<GuildRoleConfig>(new GuildRoleConfigTypeReader());
 
-                IEnumerable<ModuleInfo> modules = await CommandService.AddModulesAsync(Assembly.GetEntryAssembly(), Services).ConfigureAwait(false);
+                IEnumerable<ModuleInfo> modules = await 
+                    CommandService.AddModulesAsync(
+                        Assembly.GetEntryAssembly(), 
+                        Services
+                    )
+                .ConfigureAwait(false);
 
                 return EventResult<IEnumerable<ModuleInfo>>.FromSuccess(modules);
             }

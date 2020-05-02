@@ -253,9 +253,7 @@ namespace Skuld.Services.Bot
                             1, 
                             1, 
                             new[] { 
-                                "err:unk-cmd", 
-                                $"mod:{cmd.Module.Name}", 
-                                $"cmd:{name}" 
+                                "err:unk-cmd"
                             }
                         );
                         break;
@@ -451,7 +449,7 @@ namespace Skuld.Services.Bot
             try
             {
                 watch.Start();
-                await BotService.CommandService.ExecuteAsync(context, prefix.Length, BotService.Services, MultiMatchHandling.Best).ConfigureAwait(false);
+                await BotService.CommandService.ExecuteAsync(context, prefix.Length, BotService.Services, MultiMatchHandling.Exception).ConfigureAwait(false);
                 watch.Stop();
             }
             catch (Exception ex)

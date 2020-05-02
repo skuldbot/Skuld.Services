@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Commands;
 using Discord.WebSocket;
 using Skuld.Core.Extensions;
 using Skuld.Core.Utilities;
@@ -33,11 +32,6 @@ namespace Skuld.Services.Guilds.Pinning
 
         public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
         {
-            var context = new ShardedCommandContext(
-                BotService.DiscordClient,
-                message as SocketUserMessage
-            );
-
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             try
             {
@@ -90,7 +84,7 @@ namespace Skuld.Services.Guilds.Pinning
             }
             catch (Exception ex)
             {
-                Log.Critical(Key, ex.Message, context, ex);
+                Log.Critical(Key, ex.Message, null, ex);
             }
         }
     }

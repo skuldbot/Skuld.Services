@@ -172,11 +172,6 @@ namespace Skuld.Services.Bot
 
             if (msg == null) return;
 
-            ShardedCommandContext context = new ShardedCommandContext(
-                BotService.DiscordClient,
-                msg as SocketUserMessage
-            );
-
             if (!arg3.User.IsSpecified) return;
             else
             {
@@ -187,9 +182,9 @@ namespace Skuld.Services.Bot
 
             if (arg2 is IGuildChannel)
             {
-                await PinningService.ExecuteAdditionAsync(context.Message, arg2, arg3).ConfigureAwait(false);
+                await PinningService.ExecuteAdditionAsync(msg, arg2, arg3).ConfigureAwait(false);
 
-                await StarboardService.ExecuteAdditionAsync(context.Message, arg2, arg3).ConfigureAwait(false);
+                await StarboardService.ExecuteAdditionAsync(msg, arg2, arg3).ConfigureAwait(false);
             }
 
             if (arg2.Id == BotService.Configuration.IssueChannel)
@@ -255,7 +250,7 @@ namespace Skuld.Services.Bot
                                             Log.Error(
                                                 "Git-" + SkuldAppContext.GetCaller(),
                                                 ex.Message,
-                                                context,
+                                                null,
                                                 ex
                                             );
                                         }
@@ -289,7 +284,7 @@ namespace Skuld.Services.Bot
                     {
                         Log.Critical(Key, 
                             ex.Message,
-                            context,
+                            null,
                             ex
                         );
                     }
@@ -445,15 +440,18 @@ namespace Skuld.Services.Bot
 
                     if(feats.StackingRoles)
                     {
-                        var roles = arg.Guild.Roles.Where(z => rolesToGive.Contains(z.Id));
+                        var roles = (arg.Guild as IGuild).Roles.Where(z => rolesToGive.Contains(z.Id));
 
-                        try
+                        if (roles.Any())
                         {
-                            await arg.AddRolesAsync(roles).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Error("UsrJoin", ex.Message, null, ex);
+                            try
+                            {
+                                await arg.AddRolesAsync(roles).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error("UsrJoin", ex.Message, null, ex);
+                            }
                         }
                     }
                     else

@@ -86,6 +86,12 @@ namespace Skuld.Services.VoiceExperience
             }
 
             var connect = userEvents.FirstOrDefault(x => x.IsValid);
+
+            if(connect == null)
+            {
+                return;
+            }
+
             var disconn = DateTime.UtcNow.ToEpoch();
 
             var timeDiff = disconn - connect.Time;
