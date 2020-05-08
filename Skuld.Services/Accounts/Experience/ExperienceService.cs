@@ -16,7 +16,11 @@ namespace Skuld.Services.Accounts.Experience
 {
     public static class ExperienceService
     {
-        public static async Task HandleExperienceAsync(IUserMessage message, IUser user, IGuild guild)
+        public static async Task HandleExperienceAsync(
+            IUserMessage message, 
+            IUser user, 
+            IGuild guild
+        )
         {
             if (user.IsBot || user.IsWebhook) return;
 
@@ -53,11 +57,6 @@ namespace Skuld.Services.Accounts.Experience
 
         static string GetMessage(IUser user, IGuild guild, Guild dbGuild, IUserMessage message, ulong level, IEnumerable<LevelRewards> roles, bool showFromVoice = false)
         {
-            var context = new ShardedCommandContext(
-                BotService.DiscordClient,
-                message as SocketUserMessage
-            );
-
             var msg = dbGuild.LevelUpMessage;
 
             string rles = "";
@@ -93,8 +92,8 @@ namespace Skuld.Services.Accounts.Experience
                 }
                 catch (Exception ex)
                 {
-                    msg.ReplaceFirst("-jl", "JUMPLINK NOT AVAILABLE");
-                    Log.Error("ExperienceService", ex.Message, context, ex);
+                    msg.ReplaceFirst("-jl", "");
+                    Log.Error("ExperienceService", ex.Message, null, ex);
                 }
             }
             else

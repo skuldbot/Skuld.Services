@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Skuld.Core.Extensions;
-using Skuld.Core.Extensions.Formatting;
 using Skuld.Core.Utilities;
 using Skuld.Models;
 using Skuld.Services.Bot;
@@ -21,7 +20,9 @@ namespace Skuld.Services.Reminders
             {
                 var currentTime = DateTime.UtcNow.ToEpoch();
 
-                if (BotService.DiscordClient.Shards.All(x=>x.ConnectionState == ConnectionState.Connected))
+                if (BotService.DiscordClient.Shards
+                    .All(x=>x.ConnectionState == ConnectionState.Connected)
+                )
                 {
                     if (Database.Reminders.Any())
                     {
@@ -33,9 +34,32 @@ namespace Skuld.Services.Reminders
                             {
                                 try
                                 {
+                                    IUser creator = 
+                                        BotService.DiscordClient.GetUser(
+                                            reminder.UserId
+                                    );
+
+                                    Embed embed = new EmbedBuilder()
+                                        .WithTitle("⏰ Reminders")
+                                        .WithDescription(
+                                            $"{reminder.Content}\n\n" +
+                                            "[Message Link]" +
+                                            $"({reminder.MessageLink})"
+                                        )
+                                        .WithTimestamp(
+                                            reminder.Created.FromEpoch()
+                                        )
+                                        .WithAuthor(creator)
+                                        .WithFooter("Reminder Created")
+                                        .Build();
+
                                     await
-                                        (await BotService.DiscordClient.GetUser(reminder.UserId).GetOrCreateDMChannelAsync().ConfigureAwait(false))
-                                        .SendMessageAsync($"On {reminder.Created.FromEpoch().ToDMYString()} you asked me to remind you: {reminder.Content}\n\n<{reminder.MessageLink}>")
+                                        (
+                                            await creator
+                                                .GetOrCreateDMChannelAsync()
+                                            .ConfigureAwait(false)
+                                        )
+                                        .SendMessageAsync("", embed: embed)
                                     .ConfigureAwait(false);
 
                                     if (!reminder.Repeats)
@@ -44,18 +68,34 @@ namespace Skuld.Services.Reminders
                                     }
                                     else
                                     {
-                                        var diff = reminder.Timeout - reminder.Created;
+                                        var diff = reminder.Timeout.Subtract(
+                                            reminder.Created
+                                        );
 
                                         reminder.Timeout += diff;
-                                        DogStatsd.Increment("reminders.repeat");
+                                        DogStatsd.Increment(
+                                            "reminders.repeat"
+                                        );
                                     }
-                                    DogStatsd.Increment("reminders.processed");
+                                    DogStatsd.Increment(
+                                        "reminders.processed"
+                                    );
                                 }
                                 catch (Exception ex)
                                 {
-                                    Log.Critical("Reminders", ex.Message, null, ex);
-                                    DogStatsd.Increment("reminders.error");
-                                    Database.Reminders.RemoveRange(Database.Reminders.ToList().Where(x => x.UserId == reminder.UserId));
+                                    Log.Critical("Reminders", 
+                                        ex.Message, 
+                                        null, 
+                                        ex
+                                    );
+                                    DogStatsd.Increment(
+                                        "reminders.error"
+                                    );
+                                    Database.Reminders.RemoveRange(
+                                        Database.Reminders.ToList().Where(
+                                            x => x.UserId == reminder.UserId
+                                        )
+                                    );
                                 }
 
                                 hasChanged = true;
@@ -64,7 +104,9 @@ namespace Skuld.Services.Reminders
 
                         if (hasChanged)
                         {
-                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                            await Database.SaveChangesAsync()
+                                .ConfigureAwait(false);
+
                             hasChanged = false;
                         }
                     }
@@ -75,6 +117,8 @@ namespace Skuld.Services.Reminders
         }
 
         public static void Run()
-            => Task.Run(async () => await ExecuteAsync().ConfigureAwait(false));
+        {
+            Task.Run(async () => await ExecuteAsync().ConfigureAwait(false));
+        }
     }
 }
