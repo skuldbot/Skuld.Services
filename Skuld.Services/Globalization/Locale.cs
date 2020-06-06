@@ -17,7 +17,7 @@ namespace Skuld.Services.Globalization
         {
         }
 
-        public void InitialiseLocales()
+        public Locale InitialiseLocales()
         {
             locales.Add("en-GB", en_GB.ResourceManager);
             localehumannames.Add("English (Great Britain)", "en-GB");
@@ -32,6 +32,8 @@ namespace Skuld.Services.Globalization
             localehumannames.Add("Turkish (Turkey)", "tr-TR");
 
             Log.Info("LocaleService", "Initialised all languages");
+
+            return this;
         }
 
         public ResourceManager GetLocale(string id)

@@ -11,7 +11,6 @@ using NodaTime;
 using Octokit;
 using Skuld.APIS;
 using Skuld.Core;
-using Skuld.Core.Extensions;
 using Skuld.Core.Models;
 using Skuld.Core.Utilities;
 using Skuld.Discord.TypeReaders;
@@ -23,11 +22,9 @@ using Skuld.Services.Reminders;
 using Skuld.Services.VoiceExperience;
 using Skuld.Services.WebSocket;
 using StatsdClient;
-using SteamWebAPI2.Interfaces;
 using SysEx.Net;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -70,7 +67,7 @@ namespace Skuld.Services.Bot
 
             BotMessaging.Configure();
 
-            await 
+            var modules = await 
                 ConfigureCommandServiceAsync()
             .ConfigureAwait(false);
         }
@@ -143,16 +140,20 @@ namespace Skuld.Services.Bot
         {
             try
             {
-                var locale = new Locale();
-                locale.InitialiseLocales();
-
                 var localServices = new ServiceCollection()
                     .AddSingleton(Configuration)
-                    .AddSingleton(locale)
                     .AddSingleton<ISSClient>()
                     .AddSingleton<SocialAPIS>()
-                    .AddSingleton<SteamStore>()
                     .AddSingleton<IqdbClient>()
+                    .AddSingleton<GiphyClient>()
+                    .AddSingleton<YNWTFClient>()
+                    .AddSingleton<SysExClient>()
+                    .AddSingleton<AnimalClient>()
+                    .AddSingleton<ImghoardClient>()
+                    .AddSingleton<NekosLifeClient>()
+                    .AddSingleton<WikipediaClient>()
+                    .AddSingleton<WebComicClients>()
+                    .AddSingleton<UrbanDictionaryClient>()
                 #region Booru
                     .AddSingleton<E621Client>()
                     .AddSingleton<Rule34Client>()
@@ -163,15 +164,7 @@ namespace Skuld.Services.Bot
                     .AddSingleton<RealbooruClient>()
                     .AddSingleton<SafebooruClient>()
                 #endregion
-                    .AddSingleton<GiphyClient>()
-                    .AddSingleton<YNWTFClient>()
-                    .AddSingleton<SysExClient>()
-                    .AddSingleton<AnimalClient>()
-                    .AddSingleton<ImghoardClient>()
-                    .AddSingleton<NekosLifeClient>()
-                    .AddSingleton<WikipediaClient>()
-                    .AddSingleton<WebComicClients>()
-                    .AddSingleton<UrbanDictionaryClient>();
+                    .AddSingleton(new Locale().InitialiseLocales());
 
                 // Github
                 {
@@ -249,6 +242,8 @@ namespace Skuld.Services.Bot
 
         private static Task SendDataToDataDog()
         {
+            using var Database = new SkuldDbContextFactory().CreateDbContext();
+
             while (true)
             {
                 DogStatsd.Gauge("shards.count", DiscordClient.Shards.Count);
@@ -258,6 +253,12 @@ namespace Skuld.Services.Bot
                 if (DiscordClient.Shards.All(x => x.ConnectionState == ConnectionState.Connected))
                 {
                     DogStatsd.Gauge("guilds.total", DiscordClient.Guilds.Count);
+                    decimal money = 0;
+                    foreach(var m in Database.Users.ToList().Where(x=>x.Money != 0))
+                    {
+                        money += m.Money;
+                    }
+                    DogStatsd.Gauge("economy.circulating", money);
                 }
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }

@@ -269,6 +269,7 @@ namespace Skuld.Services.Bot
         public static async Task HandleMessageAsync(SocketMessage arg)
         {
             DogStatsd.Increment("messages.recieved");
+
             if (arg.Author.IsBot ||
                 arg.Author.IsWebhook ||
                 arg.Author.Discriminator.Equals("0000") ||

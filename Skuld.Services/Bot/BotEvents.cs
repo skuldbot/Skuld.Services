@@ -448,6 +448,8 @@ namespace Skuld.Services.Bot
                 ShardsReady.Add(arg.ShardId);
             }
 
+            HttpWebClient.SetUserAgent(arg.CurrentUser);
+
             await 
                 arg
                 .SetGameAsync(
@@ -589,8 +591,13 @@ namespace Skuld.Services.Bot
                             x.GuildId == arg.Guild.Id && x.UserId == arg.Id
                         );
 
+                    var lvl = DatabaseUtilities.GetLevelFromTotalXP(
+                        usrLvl.TotalXP,
+                        DiscordUtilities.LevelModifier
+                    );
+
                     var rolesToGive = rewards
-                        .Where(x => x.LevelRequired <= usrLvl.Level)
+                        .Where(x => x.LevelRequired <= lvl)
                         .Select(z=>z.RoleId);
 
                     if(feats.StackingRoles)
@@ -614,7 +621,7 @@ namespace Skuld.Services.Bot
                     else
                     {
                         var r = rewards
-                            .Where(x => x.LevelRequired <= usrLvl.Level)
+                            .Where(x => x.LevelRequired <= lvl)
                             .OrderByDescending(x => x.LevelRequired)
                             .FirstOrDefault();
 
