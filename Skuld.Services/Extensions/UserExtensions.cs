@@ -98,11 +98,9 @@ namespace Skuld.Services.Extensions
                 var xp = new UserExperience
                 {
                     LastGranted = now,
-                    XP = amount,
                     UserId = user.Id,
                     GuildId = id,
-                    TotalXP = amount,
-                    Level = 0
+                    TotalXP = amount
                 };
 
                 var result = await 
@@ -142,15 +140,44 @@ namespace Skuld.Services.Extensions
 
             DogStatsd.Increment("user.levels.processed");
 
-            var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(xp.Level + 1, 2.5);
-            var currXp = xp.XP.Add(amount);
+            var level = DatabaseUtilities.GetLevelFromTotalXP(
+                xp.TotalXP,
+                DiscordUtilities.LevelModifier
+            );
+
+            var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(
+                level + 1, 
+                DiscordUtilities.LevelModifier
+            );
+
+            var currXp = xp.TotalXP.Add(amount).Subtract(xptonextlevel);
+
+            StringBuilder msg = new StringBuilder();
+
+            msg.Append("Global: ").AppendLine(action == null ? "T":"F");
+
+            msg.Append("TotalXP: ").AppendLine($"{xp.TotalXP}");
+
+            msg.Append("currXp: ").AppendLine($"{currXp}");
+
+            msg.Append("xptonextlevel: ").AppendLine($"{xptonextlevel}");
+
+            msg.Append("GreaterOrEqual: ").AppendLine($"{currXp >= xptonextlevel}");
+
+            Console.WriteLine(msg.ToString());
+
             while (currXp >= xptonextlevel)
             {
                 DogStatsd.Increment("user.levels.levelup");
 
+                Console.WriteLine(level + 1 + levelAmount);
+
                 levelAmount++;
                 currXp = currXp.Subtract(xptonextlevel);
-                xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(xp.Level + 1 + levelAmount, 2.5);
+                xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(
+                    level + 1 + levelAmount, 
+                    DiscordUtilities.LevelModifier
+                );
 
                 if (action != null)
                 {
@@ -158,21 +185,19 @@ namespace Skuld.Services.Extensions
                                   guild,
                                   await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
                                   context,
-                                  xp.Level + levelAmount);
+                                  level + levelAmount);
                 }
+            }
+
+            xp.TotalXP = xp.TotalXP.Add(amount);
+
+            if (!skipTimeCheck)
+            {
+                xp.LastGranted = now;
             }
 
             if (levelAmount > 0)
             {
-                xp.XP = currXp;
-                xp.TotalXP = xp.TotalXP.Add(amount);
-                xp.Level = xp.Level.Add(levelAmount);
-
-                if (!skipTimeCheck)
-                {
-                    xp.LastGranted = now;
-                }
-
                 var suffix = "";
 
                 if (levelAmount >= 2 || levelAmount < 1)
@@ -181,21 +206,13 @@ namespace Skuld.Services.Extensions
                 }
 
                 Log.Verbose("XPGrant", 
-                    $"User leveled up {levelAmount} time{suffix}",
+                    $"User leveled up {levelAmount} time{suffix}{(action != null ? "" : " globally")}",
                     context);
 
                 return EventResult<UserExperience>.FromSuccess(xp);
             }
             else
             {
-                xp.XP = xp.XP.Add(amount);
-                xp.TotalXP = xp.TotalXP.Add(amount);
-
-                if (!skipTimeCheck)
-                {
-                    xp.LastGranted = now;
-                }
-
                 return new EventResult<UserExperience>
                 {
                     Successful = false,
