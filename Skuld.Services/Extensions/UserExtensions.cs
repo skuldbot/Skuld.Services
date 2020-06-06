@@ -152,20 +152,6 @@ namespace Skuld.Services.Extensions
 
             var currXp = xp.TotalXP.Add(amount).Subtract(xptonextlevel);
 
-            StringBuilder msg = new StringBuilder();
-
-            msg.Append("Global: ").AppendLine(action == null ? "T":"F");
-
-            msg.Append("TotalXP: ").AppendLine($"{xp.TotalXP}");
-
-            msg.Append("currXp: ").AppendLine($"{currXp}");
-
-            msg.Append("xptonextlevel: ").AppendLine($"{xptonextlevel}");
-
-            msg.Append("GreaterOrEqual: ").AppendLine($"{currXp >= xptonextlevel}");
-
-            Console.WriteLine(msg.ToString());
-
             while (currXp >= xptonextlevel)
             {
                 DogStatsd.Increment("user.levels.levelup");
