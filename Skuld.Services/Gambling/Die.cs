@@ -1,6 +1,6 @@
 ﻿using Skuld.Core;
 
-namespace Skuld.Services.Models
+namespace Skuld.Services.Gambling
 {
     /// <summary>
     /// Singular instance of a Die

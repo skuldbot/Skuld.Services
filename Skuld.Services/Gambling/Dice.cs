@@ -1,10 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using Skuld.Core.Extensions;
+using System.Collections.Generic;
 
-namespace Skuld.Services.Models
+namespace Skuld.Services.Gambling
 {
     public class Dice
     {
         private readonly List<Die> dies;
+        public int DieAmount { get { return dies.Count; } }
 
         public Dice()
         {
@@ -35,8 +37,9 @@ namespace Skuld.Services.Models
 
             foreach (var die in dies)
             {
-                amount += die.Face;
+                amount = amount.Add(die.Face);
             }
+
             return amount;
         }
 
@@ -55,10 +58,7 @@ namespace Skuld.Services.Models
 
         public Die[] Roll()
         {
-            foreach (var die in dies)
-            {
-                die.Roll();
-            }
+            dies.ForEach(x => x.Roll());
 
             return dies.ToArray();
         }
