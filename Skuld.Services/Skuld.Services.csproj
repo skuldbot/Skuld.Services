@@ -2,29 +2,29 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <AssemblyVersion>2020.5.22.0</AssemblyVersion>
-    <FileVersion>2020.5.22.0</FileVersion>
+    <AssemblyVersion>2020.6.38.0</AssemblyVersion>
+    <FileVersion>2020.6.38.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Akitaux.Twitch.Helix" Version="0.1.0-build-00012" />
-    <PackageReference Include="Discord.Net.Commands" Version="2.2.0-dev-20191226.1" />
-    <PackageReference Include="Discord.Net.Core" Version="2.2.0-dev-20191226.1" />
-    <PackageReference Include="Discord.Net.WebSocket" Version="2.2.0-dev-20191226.1" />
-    <PackageReference Include="DogStatsD-CSharp-Client" Version="4.0.1" />
+    <PackageReference Include="Discord.Net.Commands" Version="2.3.0-dev-20200525.6" />
+    <PackageReference Include="Discord.Net.Core" Version="2.3.0-dev-20200525.6" />
+    <PackageReference Include="Discord.Net.WebSocket" Version="2.3.0-dev-20200525.6" />
+    <PackageReference Include="DogStatsD-CSharp-Client" Version="5.0.2" />
     <PackageReference Include="EmojiOne" Version="4.0.1" />
     <PackageReference Include="Fleck" Version="1.1.0" />
     <PackageReference Include="IqdbApi" Version="1.4.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.Scripting" Version="3.6.0-1.final" />
-    <PackageReference Include="Microsoft.CodeQuality.Analyzers" Version="2.9.8">
+    <PackageReference Include="Microsoft.CodeAnalysis.Scripting" Version="3.7.0-1.final" />
+    <PackageReference Include="Microsoft.CodeQuality.Analyzers" Version="3.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Octokit" Version="0.46.0" />
+    <PackageReference Include="Octokit" Version="0.47.0" />
   </ItemGroup>
 
   <ItemGroup>
