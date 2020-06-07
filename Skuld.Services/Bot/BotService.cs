@@ -70,6 +70,20 @@ namespace Skuld.Services.Bot
             var modules = await 
                 ConfigureCommandServiceAsync()
             .ConfigureAwait(false);
+
+            modules
+                .IsSuccess(x => Log.Info(
+                        "Framework", 
+                        "Successfully built Command Tree"
+                    )
+                )
+                .IsError(x => Log.Error(
+                        "Framework", 
+                        "Failure building Command Tree", 
+                        null, 
+                        x.Exception
+                    )
+                );
         }
 
         public static async Task StartBotAsync()
