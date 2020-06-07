@@ -29,7 +29,7 @@ namespace Skuld.Services.Messaging
                 Log.Info(Key, $"Dispatched message to {channel.Name}");
             }
 
-            return await channel.SendMessageAsync(message, false, embed ?? null).ConfigureAwait(false);
+            return await channel.SendMessageAsync(message ?? "", false, embed ?? null).ConfigureAwait(false);
         }
 
         public static async Task<IUserMessage> ReplyWithFileAsync(IMessageChannel channel, string message, Stream file, string fileName, Embed embed = null)

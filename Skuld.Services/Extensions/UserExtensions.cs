@@ -124,7 +124,8 @@ namespace Skuld.Services.Extensions
             return didLevelUp;
         }
 
-        public static async Task<EventResult<UserExperience>> PerformLevelupCheckAsync(this UserExperience xp,
+        public static async Task<EventResult<UserExperience>> PerformLevelupCheckAsync(
+            this UserExperience xp,
             ulong amount,
             User user,
             IGuild guild,
@@ -207,7 +208,12 @@ namespace Skuld.Services.Extensions
             }
         }
 
-        public static async Task<EmbedBuilder> GetWhoisAsync(this IUser user, IGuildUser guildUser, IReadOnlyCollection<ulong> roles, IDiscordClient Client, SkuldConfig Configuration)
+        public static async Task<EmbedBuilder> GetWhoisAsync(
+            this IUser user, 
+            IGuildUser guildUser, 
+            IReadOnlyCollection<ulong> roles, 
+            IDiscordClient Client, 
+            SkuldConfig Configuration)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
             var sUser = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
@@ -285,7 +291,9 @@ namespace Skuld.Services.Extensions
             return embed;
         }
 
-        public static bool IsStreakReset(this User target, SkuldConfig config)
+        public static bool IsStreakReset(
+            this User target, 
+            SkuldConfig config)
         {
             var days = target.IsDonator ? config.StreakLimitDays * 2 : config.StreakLimitDays;
 
