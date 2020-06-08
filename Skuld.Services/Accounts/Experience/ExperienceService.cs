@@ -88,11 +88,11 @@ namespace Skuld.Services.Accounts.Experience
 
                 try
                 {
-                    msg.ReplaceFirst("-jl", message.GetJumpUrl());
+                    msg = msg.ReplaceFirst("-jl", message.GetJumpUrl());
                 }
                 catch (Exception ex)
                 {
-                    msg.ReplaceFirst("-jl", "");
+                    msg = msg.ReplaceFirst("-jl", "");
                     Log.Error("ExperienceService", ex.Message, null, ex);
                 }
             }
