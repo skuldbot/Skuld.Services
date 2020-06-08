@@ -845,117 +845,37 @@ namespace Skuld.Services.Bot
             SocketGuildUser arg2
         )
         {
+            if (arg1.IsBot || arg1.IsWebhook) return;
+
             //Resync Data
             {
-                if (!arg1.IsBot && !arg1.IsWebhook)
+                
+                using SkuldDbContext database = new SkuldDbContextFactory()
+                    .CreateDbContext();
+
+                Models.User suser = await database
+                    .InsertOrGetUserAsync(arg2)
+                    .ConfigureAwait(false);
+
+                if (!suser.IsUpToDate(arg2))
                 {
-                    using SkuldDbContext database = new SkuldDbContextFactory()
-                        .CreateDbContext();
+                    suser.AvatarUrl = 
+                        arg2.GetAvatarUrl() ?? arg2.GetDefaultAvatarUrl();
 
-                    Skuld.Models.User suser = await database
-                        .InsertOrGetUserAsync(arg2)
+                    suser.Username = arg2.Username;
+
+                    await database.SaveChangesAsync()
                         .ConfigureAwait(false);
-
-                    if (!suser.IsUpToDate(arg2))
-                    {
-                        suser.AvatarUrl = 
-                            arg2.GetAvatarUrl() ?? arg2.GetDefaultAvatarUrl();
-
-                        suser.Username = arg2.Username;
-
-                        await database.SaveChangesAsync()
-                            .ConfigureAwait(false);
-                    }
                 }
             }
 
             if (arg1.Roles.Count != arg2.Roles.Count)
             {
                 //Add Persistent Role
-                {
-                    using SkuldDbContext database = new SkuldDbContextFactory()
-                        .CreateDbContext();
-
-                    var guildPersistentRoles = database.PersistentRoles
-                        .AsQueryable()
-                        .Where(x => x.GuildId == arg2.Guild.Id)
-                        .DistinctBy(x => x.RoleId)
-                        .ToList();
-
-                    guildPersistentRoles.ForEach(z =>
-                    {
-                        arg2.Roles.ToList().ForEach(x =>
-                        {
-                            if (z.RoleId == x.Id)
-                            {
-                                if (!database.PersistentRoles
-                                    .Any(y => y.RoleId == z.RoleId && 
-                                    y.UserId == arg2.Id && 
-                                    y.GuildId == arg2.Guild.Id)
-                                )
-                                {
-                                    database.PersistentRoles.Add(
-                                        new PersistentRole
-                                        {
-                                            GuildId = arg2.Guild.Id,
-                                            RoleId = z.RoleId,
-                                            UserId = arg2.Id
-                                        }
-                                    );
-                                }
-                            }
-                        });
-                    });
-
-                    await database.SaveChangesAsync().ConfigureAwait(false);
-                }
+                await HandlePersistentRoleAdd(arg2).ConfigureAwait(false);
 
                 //Remove Persistent Role
-                {
-                    using SkuldDbContext database = new SkuldDbContextFactory()
-                        .CreateDbContext();
-
-                    IEnumerable<SocketRole> roleDifference;
-
-                    if (arg1.Roles.Count > arg2.Roles.Count)
-                    {
-                        roleDifference = arg1.Roles.Except(arg2.Roles);
-                    }
-                    else
-                    {
-                        roleDifference = arg2.Roles.Except(arg1.Roles);
-                    }
-
-                    var guildPersistentRoles = database.PersistentRoles
-                        .AsQueryable()
-                        .Where(x => x.GuildId == arg2.Guild.Id)
-                        .DistinctBy(x => x.RoleId)
-                        .ToList();
-
-                    var roles = new List<ulong>();
-
-                    guildPersistentRoles.ForEach(z =>
-                    {
-                        if(roleDifference.Any(x=>x.Id == z.RoleId))
-                        {
-                            roles.Add(z.RoleId);
-                        }
-                    });
-
-                    if (roles.Any())
-                    {
-                        database.PersistentRoles.RemoveRange(
-                            database.PersistentRoles.ToList()
-                            .Where(x => 
-                                roles.Contains(x.RoleId) && 
-                                x.UserId == arg2.Id && 
-                                x.GuildId == arg2.Guild.Id
-                            )
-                        );
-                    }
-
-                    await database.SaveChangesAsync().ConfigureAwait(false);
-                }
+                await HandlePersistentRoleRemove(arg1, arg2).ConfigureAwait(false);
             }
         }
 
@@ -986,6 +906,95 @@ namespace Skuld.Services.Bot
             await Database.SaveChangesAsync().ConfigureAwait(false);
         }
 
+        private static async Task HandlePersistentRoleAdd(
+            SocketGuildUser arg
+        )
+        {
+            using SkuldDbContext database = new SkuldDbContextFactory()
+                .CreateDbContext();
+
+            var guildPersistentRoles = database.PersistentRoles
+                .AsQueryable()
+                .Where(x => x.GuildId == arg.Guild.Id)
+                .DistinctBy(x => x.RoleId)
+                .ToList();
+
+            guildPersistentRoles.ForEach(z =>
+            {
+                arg.Roles.ToList().ForEach(x =>
+                {
+                    if (z.RoleId == x.Id)
+                    {
+                        if (!database.PersistentRoles
+                            .Any(y => y.RoleId == z.RoleId &&
+                            y.UserId == arg.Id &&
+                            y.GuildId == arg.Guild.Id)
+                        )
+                        {
+                            database.PersistentRoles.Add(
+                                new PersistentRole
+                                {
+                                    GuildId = arg.Guild.Id,
+                                    RoleId = z.RoleId,
+                                    UserId = arg.Id
+                                }
+                            );
+                        }
+                    }
+                });
+            });
+
+            await database.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        private static async Task HandlePersistentRoleRemove(
+            SocketGuildUser arg1,
+            SocketGuildUser arg2)
+        {
+            using SkuldDbContext database = new SkuldDbContextFactory()
+                .CreateDbContext();
+
+            IEnumerable<SocketRole> roleDifference;
+
+            if (arg1.Roles.Count > arg2.Roles.Count)
+            {
+                roleDifference = arg1.Roles.Except(arg2.Roles);
+            }
+            else
+            {
+                roleDifference = arg2.Roles.Except(arg1.Roles);
+            }
+
+            var guildPersistentRoles = database.PersistentRoles
+                .AsQueryable()
+                .Where(x => x.GuildId == arg2.Guild.Id)
+                .DistinctBy(x => x.RoleId)
+                .ToList();
+
+            var roles = new List<ulong>();
+
+            guildPersistentRoles.ForEach(z =>
+            {
+                if (roleDifference.Any(x => x.Id == z.RoleId))
+                {
+                    roles.Add(z.RoleId);
+                }
+            });
+
+            if (roles.Any())
+            {
+                database.PersistentRoles.RemoveRange(
+                    database.PersistentRoles.ToList()
+                    .Where(x =>
+                        roles.Contains(x.RoleId) &&
+                        x.UserId == arg2.Id &&
+                        x.GuildId == arg2.Guild.Id
+                    )
+                );
+            }
+
+            await database.SaveChangesAsync().ConfigureAwait(false);
+        }
 
         #endregion Guilds
     }
