@@ -24,13 +24,11 @@ namespace Skuld.Services.Reminders
                     .All(x=>x.ConnectionState == ConnectionState.Connected)
                 )
                 {
-                    var reminders = Database.Reminders.ToList();
-
-                    if (reminders.Any())
+                    if (Database.Reminders.Any())
                     {
                         bool hasChanged = false;
 
-                        reminders.ForEach(async reminder =>
+                        Database.Reminders.ToList().ForEach(async reminder =>
                         {
                             if (reminder.Timeout <= currentTime)
                             {

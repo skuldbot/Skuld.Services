@@ -9,6 +9,7 @@ namespace Skuld.Services.Gambling
     public static class MiaHandler
     {
         static List<MiaSession> Sessions = new List<MiaSession>();
+        public const ushort MaxReRolls = 5;
 
         public static MiaSession NewSession(IUser user, 
             ulong betAmount, 

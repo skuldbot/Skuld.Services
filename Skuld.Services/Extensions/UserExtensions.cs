@@ -137,17 +137,20 @@ namespace Skuld.Services.Extensions
             var now = DateTime.UtcNow.ToEpoch();
             ulong levelAmount = 0;
 
+            if (xp.Level == 0 && xp.TotalXP != 0)
+            {
+                xp.Level = DatabaseUtilities.GetLevelFromTotalXP(
+                    xp.TotalXP,
+                    DiscordUtilities.LevelModifier
+                );
+            }
+
             DogStatsd.Increment("user.levels.xp.granted", (int)amount);
 
             DogStatsd.Increment("user.levels.processed");
 
-            var level = DatabaseUtilities.GetLevelFromTotalXP(
-                xp.TotalXP,
-                DiscordUtilities.LevelModifier
-            );
-
             var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(
-                level + 1, 
+                xp.Level + 1, 
                 DiscordUtilities.LevelModifier
             );
 
@@ -157,12 +160,10 @@ namespace Skuld.Services.Extensions
             {
                 DogStatsd.Increment("user.levels.levelup");
 
-                Console.WriteLine(level + 1 + levelAmount);
-
                 levelAmount++;
                 currXp = currXp.Subtract(xptonextlevel);
                 xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(
-                    level + 1 + levelAmount, 
+                    xp.Level + 1 + levelAmount, 
                     DiscordUtilities.LevelModifier
                 );
 
@@ -172,7 +173,7 @@ namespace Skuld.Services.Extensions
                                   guild,
                                   await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
                                   context,
-                                  level + levelAmount);
+                                  xp.Level + levelAmount);
                 }
             }
 

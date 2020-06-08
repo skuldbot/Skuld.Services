@@ -9,5 +9,6 @@ namespace Skuld.Services.Gambling.Models
         public Dice PlayerDice;
         public Dice BotDice;
         public IUserMessage PreviousMessage;
+        public ushort ReRolls;
     }
 }

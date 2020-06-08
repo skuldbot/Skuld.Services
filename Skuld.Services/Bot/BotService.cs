@@ -267,12 +267,6 @@ namespace Skuld.Services.Bot
                 if (DiscordClient.Shards.All(x => x.ConnectionState == ConnectionState.Connected))
                 {
                     DogStatsd.Gauge("guilds.total", DiscordClient.Guilds.Count);
-                    decimal money = 0;
-                    foreach(var m in Database.Users.ToList().Where(x=>x.Money != 0))
-                    {
-                        money += m.Money;
-                    }
-                    DogStatsd.Gauge("economy.circulating", money);
                 }
                 Thread.Sleep(TimeSpan.FromSeconds(5));
             }
