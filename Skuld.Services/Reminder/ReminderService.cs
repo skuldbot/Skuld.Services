@@ -24,17 +24,19 @@ namespace Skuld.Services.Reminders
                     .All(x=>x.ConnectionState == ConnectionState.Connected)
                 )
                 {
-                    if (Database.Reminders.Any())
+                    var reminders = Database.Reminders.ToList();
+
+                    if (reminders.Any())
                     {
                         bool hasChanged = false;
 
-                        foreach(var reminder in Database.Reminders.ToList())
+                        reminders.ForEach(async reminder =>
                         {
                             if (reminder.Timeout <= currentTime)
                             {
                                 try
                                 {
-                                    IUser creator = 
+                                    IUser creator =
                                         BotService.DiscordClient.GetUser(
                                             reminder.UserId
                                     );
@@ -83,9 +85,9 @@ namespace Skuld.Services.Reminders
                                 }
                                 catch (Exception ex)
                                 {
-                                    Log.Critical("Reminders", 
-                                        ex.Message, 
-                                        null, 
+                                    Log.Critical("Reminders",
+                                        ex.Message,
+                                        null,
                                         ex
                                     );
                                     DogStatsd.Increment(
@@ -100,7 +102,7 @@ namespace Skuld.Services.Reminders
 
                                 hasChanged = true;
                             }
-                        }
+                        });
 
                         if (hasChanged)
                         {
@@ -112,7 +114,7 @@ namespace Skuld.Services.Reminders
                     }
                 }
 
-                await Task.Delay(50).ConfigureAwait(false);
+                await Task.Delay(1000).ConfigureAwait(false);
             }
         }
 
