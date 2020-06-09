@@ -178,6 +178,7 @@ namespace Skuld.Services.Extensions
             }
 
             xp.TotalXP = xp.TotalXP.Add(amount);
+            xp.Level = xp.Level.Add(levelAmount);
 
             if (!skipTimeCheck)
             {

@@ -32,6 +32,7 @@ namespace Skuld.Services.Bot
             Client.ShardConnected += Bot_ShardConnected;
             Client.ShardDisconnected += Bot_ShardDisconnected;
             Client.ShardReady += Bot_ShardReady;
+            Client.MessageReceived += BotMessaging.HandleMessage;
         }
 
         public static void UnRegisterEvents()
@@ -39,10 +40,10 @@ namespace Skuld.Services.Bot
             Client.ShardConnected -= Bot_ShardConnected;
             Client.ShardDisconnected -= Bot_ShardDisconnected;
             Client.ShardReady -= Bot_ShardReady;
+            Client.MessageReceived -= BotMessaging.HandleMessage;
 
             foreach (var shard in Client.Shards)
             {
-                shard.MessageReceived -= BotMessaging.HandleMessageAsync;
                 shard.MessagesBulkDeleted -= Shard_MessagesBulkDeleted;
                 shard.MessageDeleted -= Shard_MessageDeleted;
                 shard.JoinedGuild -= Bot_JoinedGuild;
@@ -93,107 +94,6 @@ namespace Skuld.Services.Bot
                     break;
             }
             return Task.CompletedTask;
-        }
-
-        private static async Task Shard_MessageDeleted(
-            Cacheable<IMessage, ulong> arg1,
-            ISocketMessageChannel arg2
-        )
-        {
-            using var Database = new SkuldDbContextFactory().CreateDbContext();
-
-            if (arg2 is IGuildChannel guildChannel)
-            {
-                var gld = await Database
-                    .InsertOrGetGuildAsync(guildChannel.Guild)
-                    .ConfigureAwait(false);
-
-                var feats = Database.Features
-                    .FirstOrDefault(x => x.Id == guildChannel.GuildId);
-
-                if (feats.Starboard && gld.StarDeleteIfSourceDelete)
-                {
-                    var message = await arg1.GetOrDownloadAsync()
-                        .ConfigureAwait(false);
-
-                    if (Database.StarboardVotes
-                        .Any(x => x.MessageId == message.Id))
-                    {
-                        var vote = Database.StarboardVotes
-                            .FirstOrDefault(x => x.MessageId == message.Id);
-
-                        Database.StarboardVotes
-                            .RemoveRange(Database.StarboardVotes.ToList()
-                            .Where(x => x.MessageId == message.Id));
-
-                        var chan = await guildChannel.Guild
-                            .GetTextChannelAsync(gld.StarboardChannel)
-                            .ConfigureAwait(false);
-
-                        var starMessage = await chan
-                            .GetMessageAsync(vote.StarboardMessageId)
-                            .ConfigureAwait(false);
-
-                        await starMessage.DeleteAsync().ConfigureAwait(false);
-
-                        await Database.SaveChangesAsync()
-                            .ConfigureAwait(false);
-                    }
-                }
-            }
-        }
-
-        private static async Task Shard_MessagesBulkDeleted(
-            IReadOnlyCollection<Cacheable<IMessage, ulong>> arg1,
-            ISocketMessageChannel arg2
-        )
-        {
-            using var Database = new SkuldDbContextFactory().CreateDbContext();
-            
-            if(arg2 is IGuildChannel guildChannel)
-            {
-                var gld = await Database
-                    .InsertOrGetGuildAsync(guildChannel.Guild)
-                    .ConfigureAwait(false);
-
-                var feats = Database.Features
-                    .FirstOrDefault(x => x.Id == guildChannel.GuildId);
-
-                if(feats.Starboard && gld.StarDeleteIfSourceDelete)
-                {
-                    foreach (var msg in arg1)
-                    {
-                        var message = await msg.GetOrDownloadAsync()
-                            .ConfigureAwait(false);
-
-                        if (Database.StarboardVotes
-                            .Any(x => x.MessageId == message.Id))
-                        {
-                            var vote = Database.StarboardVotes
-                                .FirstOrDefault(x => 
-                                    x.MessageId == message.Id
-                                );
-
-                            Database.StarboardVotes
-                                .RemoveRange(Database.StarboardVotes.ToList()
-                                .Where(x => x.MessageId == message.Id));
-
-                            var chan = await guildChannel.Guild
-                                .GetTextChannelAsync(gld.StarboardChannel)
-                                .ConfigureAwait(false);
-                            var starMessage = await chan
-                                .GetMessageAsync(vote.StarboardMessageId)
-                                .ConfigureAwait(false);
-
-                            await starMessage.DeleteAsync()
-                                .ConfigureAwait(false);
-
-                            await Database.SaveChangesAsync()
-                                .ConfigureAwait(false);
-                        }
-                    }
-                }
-            }
         }
 
         #region Reactions
@@ -430,12 +330,11 @@ namespace Skuld.Services.Bot
         {
             if (!ShardsReady.Contains(arg.ShardId))
             {
-                arg.MessageReceived += BotMessaging.HandleMessageAsync;
-                arg.MessageDeleted += Shard_MessageDeleted;
-                arg.MessagesBulkDeleted += Shard_MessagesBulkDeleted;
+                //arg.MessageDeleted += Shard_MessageDeleted;
+                //arg.MessagesBulkDeleted += Shard_MessagesBulkDeleted;
                 arg.JoinedGuild += Bot_JoinedGuild;
                 arg.RoleDeleted += Bot_RoleDeleted;
-                arg.GuildMemberUpdated += Bot_GuildMemberUpdated;
+                //arg.GuildMemberUpdated += Bot_GuildMemberUpdated;
                 arg.LeftGuild += Bot_LeftGuild;
                 arg.UserJoined += Bot_UserJoined;
                 arg.UserLeft += Bot_UserLeft;
@@ -460,6 +359,107 @@ namespace Skuld.Services.Bot
             ).ConfigureAwait(false);
 
             Log.Info($"Shard #{arg.ShardId}", "Shard Ready");
+        }
+
+        private static async Task Shard_MessageDeleted(
+            Cacheable<IMessage, ulong> arg1,
+            ISocketMessageChannel arg2
+        )
+        {
+            if (arg2 is IGuildChannel guildChannel)
+            {
+                using var Database = new SkuldDbContextFactory().CreateDbContext();
+
+                var gld = await Database
+                    .InsertOrGetGuildAsync(guildChannel.Guild)
+                    .ConfigureAwait(false);
+
+                var feats = Database.Features
+                    .FirstOrDefault(x => x.Id == guildChannel.GuildId);
+
+                if (feats.Starboard && gld.StarDeleteIfSourceDelete)
+                {
+                    var message = await arg1.GetOrDownloadAsync()
+                        .ConfigureAwait(false);
+
+                    if (Database.StarboardVotes
+                        .Any(x => x.MessageId == message.Id))
+                    {
+                        var vote = Database.StarboardVotes
+                            .FirstOrDefault(x => x.MessageId == message.Id);
+
+                        Database.StarboardVotes
+                            .RemoveRange(Database.StarboardVotes.ToList()
+                            .Where(x => x.MessageId == message.Id));
+
+                        var chan = await guildChannel.Guild
+                            .GetTextChannelAsync(gld.StarboardChannel)
+                            .ConfigureAwait(false);
+
+                        var starMessage = await chan
+                            .GetMessageAsync(vote.StarboardMessageId)
+                            .ConfigureAwait(false);
+
+                        await starMessage.DeleteAsync().ConfigureAwait(false);
+
+                        await Database.SaveChangesAsync()
+                            .ConfigureAwait(false);
+                    }
+                }
+            }
+        }
+
+        private static async Task Shard_MessagesBulkDeleted(
+            IReadOnlyCollection<Cacheable<IMessage, ulong>> arg1,
+            ISocketMessageChannel arg2
+        )
+        {
+            using var Database = new SkuldDbContextFactory().CreateDbContext();
+
+            if (arg2 is IGuildChannel guildChannel)
+            {
+                var gld = await Database
+                    .InsertOrGetGuildAsync(guildChannel.Guild)
+                    .ConfigureAwait(false);
+
+                var feats = Database.Features
+                    .FirstOrDefault(x => x.Id == guildChannel.GuildId);
+
+                if (feats.Starboard && gld.StarDeleteIfSourceDelete)
+                {
+                    foreach (var msg in arg1)
+                    {
+                        var message = await msg.GetOrDownloadAsync()
+                            .ConfigureAwait(false);
+
+                        if (Database.StarboardVotes
+                            .Any(x => x.MessageId == message.Id))
+                        {
+                            var vote = Database.StarboardVotes
+                                .FirstOrDefault(x =>
+                                    x.MessageId == message.Id
+                                );
+
+                            Database.StarboardVotes
+                                .RemoveRange(Database.StarboardVotes.ToList()
+                                .Where(x => x.MessageId == message.Id));
+
+                            var chan = await guildChannel.Guild
+                                .GetTextChannelAsync(gld.StarboardChannel)
+                                .ConfigureAwait(false);
+                            var starMessage = await chan
+                                .GetMessageAsync(vote.StarboardMessageId)
+                                .ConfigureAwait(false);
+
+                            await starMessage.DeleteAsync()
+                                .ConfigureAwait(false);
+
+                            await Database.SaveChangesAsync()
+                                .ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
         }
 
         private static async Task Bot_ShardConnected(DiscordSocketClient arg)

@@ -260,177 +260,142 @@ namespace Skuld.Services.Bot
                 }
             }
             watch = new Stopwatch();
+
+            try
+            {
+                var message = arg2.Message as SocketUserMessage;
+
+                using var Database = new SkuldDbContextFactory().CreateDbContext();
+
+                User suser = await Database.InsertOrGetUserAsync(message.Author).ConfigureAwait(false);
+
+                {
+                    var keys = Database.DonatorKeys.AsAsyncEnumerable().Where(x => x.Redeemer == suser.Id);
+
+                    if (await keys.AnyAsync())
+                    {
+                        bool hasChanged = false;
+                        var current = DateTime.Now;
+                        await keys.ForEachAsync(x =>
+                        {
+                            if (current > x.RedeemedWhen.FromEpoch().AddDays(365))
+                            {
+                                Database.DonatorKeys.Remove(x);
+                                hasChanged = true;
+                            }
+                        });
+
+                        if (hasChanged)
+                        {
+                            if (!await Database.DonatorKeys.AsAsyncEnumerable().Where(x => x.Redeemer == suser.Id).AnyAsync())
+                            {
+                                suser.Flags -= DiscordUtilities.BotDonator;
+                            }
+                            await Database.SaveChangesAsync().ConfigureAwait(false);
+                        }
+                    }
+                }
+
+                if (!suser.IsUpToDate(message.Author as SocketUser))
+                {
+                    suser.AvatarUrl = message.Author.GetAvatarUrl() ?? message.Author.GetDefaultAvatarUrl();
+                    suser.Username = message.Author.Username;
+                    await Database.SaveChangesAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(Key, ex.Message, arg2, ex);
+            }
         }
 
         #endregion CommandService Logs
 
         #region HandleProcessing
 
-        public static async Task HandleMessageAsync(SocketMessage arg)
+        public static Task HandleMessage(SocketMessage arg)
+        {
+            Task.Run(() => HandleMessageAsync(arg));
+
+            return Task.CompletedTask;
+        }
+
+        private static async Task HandleMessageAsync(SocketMessage arg)
         {
             DogStatsd.Increment("messages.recieved");
 
             if (arg.Author.IsBot ||
                 arg.Author.IsWebhook ||
-                arg.Author.Discriminator.Equals("0000") ||
                 arg.Author.DiscriminatorValue == 0 ||
-                !(arg is SocketUserMessage message))
-            {
-                return;
-            }
+                !(arg is SocketUserMessage message)) return;
 
             ShardedCommandContext context = new ShardedCommandContext(
-                BotService.DiscordClient, 
+                BotService.DiscordClient,
                 message
             );
+
+            Guild sguild = null;
+
+            if (context.Guild != null)
+            {
+                if (!await CheckPermissionToSendMessageAsync(context.Channel as ITextChannel).ConfigureAwait(false)) return;
+
+                if (BotService.DiscordClient.GetShardFor(context.Guild).ConnectionState != ConnectionState.Connected) return;
+
+                Task.Run(() => HandleSideTasksAsync(context));
+
+                var guser = await
+                    (context.Guild as IGuild).GetCurrentUserAsync()
+                .ConfigureAwait(false);
+
+                var guildMem = await
+                    (context.Guild as IGuild).GetUserAsync(message.Author.Id)
+                .ConfigureAwait(false);
+
+                if (!guser.GetPermissions(context.Channel as IGuildChannel).SendMessages) return;
+
+                if (!MessageTools.IsEnabledChannel(guildMem, context.Channel as ITextChannel)) return;
+
+                using var Database = new SkuldDbContextFactory().CreateDbContext();
+
+                sguild = await
+                   Database.InsertOrGetGuildAsync(context.Guild)
+                .ConfigureAwait(false);
+
+                if (sguild.Name != context.Guild.Name)
+                {
+                    sguild.Name = context.Guild.Name;
+
+                    await Database.SaveChangesAsync().ConfigureAwait(false);
+                }
+
+                if (sguild.IconUrl != context.Guild.IconUrl)
+                {
+                    sguild.IconUrl = context.Guild.IconUrl;
+
+                    await Database.SaveChangesAsync().ConfigureAwait(false);
+                }
+            }
+
+            if (!MessageTools.HasPrefix(message, BotService.Configuration.Prefix, BotService.Configuration.AltPrefix, sguild?.Prefix)) return;
+
+            Console.WriteLine($"{arg.Author}");
 
             try
             {
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
 
-                User suser = await Database.InsertOrGetUserAsync(arg.Author).ConfigureAwait(false);
-
-                Guild sguild = null;
-
-                if (context.Guild != null)
-                {
-                    if (!await CheckPermissionToSendMessageAsync(context.Channel as ITextChannel).ConfigureAwait(false))
-                    {
-                        return;
-                    }
-
-                    if (BotService.DiscordClient.GetShardFor(context.Guild).ConnectionState != ConnectionState.Connected)
-                    {
-                        return;
-                    }
-
-                    var guser = await
-                        (context.Guild as IGuild).GetCurrentUserAsync()
-                    .ConfigureAwait(false);
-
-                    var guildMem = await
-                        (context.Guild as IGuild).GetUserAsync(message.Author.Id)
-                    .ConfigureAwait(false);
-
-                    if (!guser.GetPermissions(context.Channel as IGuildChannel).SendMessages)
-                    {
-                        return;
-                    }
-                    if (!MessageTools.IsEnabledChannel(guildMem, context.Channel as ITextChannel))
-                    {
-                        return;
-                    }
-
-                    sguild = await
-                        Database.InsertOrGetGuildAsync(context.Guild)
-                    .ConfigureAwait(false);
-
-                    if (sguild.Name == null || !sguild.Name.Equals(context.Guild.Name))
-                    {
-                        sguild.Name = context.Guild.Name;
-
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                    }
-
-                    if (sguild.IconUrl == null || !sguild.IconUrl.Equals(context.Guild.IconUrl))
-                    {
-                        sguild.IconUrl = context.Guild.IconUrl;
-
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                    }
-                }
+                User suser = await Database.InsertOrGetUserAsync(message.Author).ConfigureAwait(false);
 
                 if (suser != null &&
                     suser.Flags.IsBitSet(DiscordUtilities.Banned) &&
                     (!suser.Flags.IsBitSet(DiscordUtilities.BotCreator) ||
                     !suser.Flags.IsBitSet(DiscordUtilities.BotAdmin))
-                )
-                {
-                    return;
-                }
-
-                if (!suser.IsUpToDate(message.Author))
-                {
-                    suser.AvatarUrl = message.Author.GetAvatarUrl() ?? message.Author.GetDefaultAvatarUrl();
-                    suser.Username = message.Author.Username;
-                    await Database.SaveChangesAsync().ConfigureAwait(false);
-                }
-
-                {
-                    var keys = Database.DonatorKeys.ToList().Where(x => x.Redeemer == suser.Id).ToList();
-
-                    if (keys.Any())
-                    {
-                        var current = DateTime.Now.ToEpoch();
-                        keys.ForEach(x =>
-                        {
-                            if (current > x.RedeemedWhen.FromEpoch().AddDays(365).ToEpoch())
-                            {
-                                keys.Remove(x);
-                            }
-                        });
-
-                        if (keys.Count <= 0)
-                        {
-                            await Database.SaveChangesAsync().ConfigureAwait(false);
-                            suser.Flags -= DiscordUtilities.BotDonator;
-                            await Database.SaveChangesAsync().ConfigureAwait(false);
-                        }
-                    }
-                }
-
-                if (sguild != null)
-                {
-                    if (!Database.Features.Any(x => x.Id == sguild.Id))
-                    {
-                        Database.Features.Add(new GuildFeatures
-                        {
-                            Id = sguild.Id
-                        });
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                    }
-
-                    GuildFeatures features = Database.Features.FirstOrDefault(x => x.Id == sguild.Id);
-                    if (features.Experience)
-                    {
-                        _ = ExperienceService.HandleExperienceAsync(message, message.Author, ((message.Channel as ITextChannel).Guild));
-                    }
-                }
-
-                if (!MessageTools.HasPrefix(message, BotService.Configuration.Prefix, BotService.Configuration.AltPrefix, sguild?.Prefix)) return;
-
-                if (sguild != null)
-                {
-                    if (!Database.Modules.Any(x => x.Id == sguild.Id))
-                    {
-                        Database.Modules.Add(new GuildModules
-                        {
-                            Id = sguild.Id
-                        });
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                    }
-
-                    GuildModules modules;
-                    if (!Database.Modules.Any(x=>x.Id == sguild.Id))
-                    {
-                        Database.Modules.Add(new GuildModules
-                        {
-                            Id = sguild.Id
-                        });
-                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                    }
-
-                    modules = Database.Modules.FirstOrDefault(x => x.Id == sguild.Id);
-
-                    if (modules.Custom)
-                    {
-                        var _ = CustomCommandService.HandleCustomCommandAsync(context, BotService.Configuration);
-                    }
-                }
+                ) return;
 
                 var prefix = MessageTools.GetPrefixFromCommand(context.Message.Content, BotService.Configuration.Prefix, BotService.Configuration.AltPrefix, sguild?.Prefix);
 
-                if(prefix != null)
+                if (prefix != null)
                 {
                     await DispatchCommandAsync(context, prefix).ConfigureAwait(false);
                 }
@@ -441,11 +406,69 @@ namespace Skuld.Services.Bot
             }
         }
 
+        public static async Task HandleSideTasksAsync(ICommandContext context)
+        {
+            using var Database = new SkuldDbContextFactory().CreateDbContext();
+
+            Guild sguild = null;
+
+            if (context.Guild != null)
+            {
+                sguild = await
+                   Database.InsertOrGetGuildAsync(context.Guild)
+                .ConfigureAwait(false);
+            }
+
+            if (sguild != null)
+            {
+                if (!Database.Features.Any(x => x.Id == sguild.Id))
+                {
+                    Database.Features.Add(new GuildFeatures
+                    {
+                        Id = sguild.Id
+                    });
+                    await Database.SaveChangesAsync().ConfigureAwait(false);
+                }
+
+                GuildFeatures features = Database.Features.FirstOrDefault(x => x.Id == sguild.Id);
+                if (features.Experience)
+                {
+                    Task.Run(() => ExperienceService.HandleExperienceAsync(context.Message, context.User, context.Guild));
+                }
+
+                if (!Database.Modules.Any(x => x.Id == sguild.Id))
+                {
+                    Database.Modules.Add(new GuildModules
+                    {
+                        Id = sguild.Id
+                    });
+                    await Database.SaveChangesAsync().ConfigureAwait(false);
+                }
+
+                GuildModules modules;
+                if (!Database.Modules.Any(x => x.Id == sguild.Id))
+                {
+                    Database.Modules.Add(new GuildModules
+                    {
+                        Id = sguild.Id
+                    });
+                    await Database.SaveChangesAsync().ConfigureAwait(false);
+                }
+
+                modules = Database.Modules.FirstOrDefault(x => x.Id == sguild.Id);
+
+                if (modules.Custom)
+                {
+                    Task.Run(() => CustomCommandService.HandleCustomCommandAsync(context, BotService.Configuration));
+                }
+            }
+        }
+
         #endregion HandleProcessing
 
         #region Dispatching
 
-        public static async Task DispatchCommandAsync(ShardedCommandContext context, string prefix)
+        public static async Task DispatchCommandAsync(ICommandContext context, string prefix)
         {
             try
             {

@@ -1,4 +1,5 @@
 ﻿using Discord.Commands;
+using Discord.WebSocket;
 using Skuld.Core.Utilities;
 using Skuld.Models;
 using StatsdClient;
@@ -11,14 +12,14 @@ namespace Skuld.Services.CustomCommands
     {
         private static System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
 
-        public static async Task HandleCustomCommandAsync(ShardedCommandContext context, SkuldConfig config)
+        public static async Task HandleCustomCommandAsync(ICommandContext context, SkuldConfig config)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
             var prefix = MessageTools.GetPrefixFromCommand(context.Message.Content, config.Prefix, config.AltPrefix, (await Database.InsertOrGetGuildAsync(context.Guild).ConfigureAwait(false)).Prefix);
             if(prefix != null)
             {
-                var name = MessageTools.GetCommandName(prefix, context.Message);
+                var name = MessageTools.GetCommandName(prefix, context.Message as SocketMessage);
                 var customcommand = Database.CustomCommands.FirstOrDefault(x => x.GuildId == context.Guild.Id && x.Name.ToLower() == name.ToLower());
 
                 if (customcommand != null)
@@ -31,7 +32,7 @@ namespace Skuld.Services.CustomCommands
             return;
         }
 
-        public static async Task DispatchCommandAsync(ShardedCommandContext context, CustomCommand command)
+        public static async Task DispatchCommandAsync(ICommandContext context, CustomCommand command)
         {
             using var Database = new SkuldDbContextFactory().CreateDbContext();
 
