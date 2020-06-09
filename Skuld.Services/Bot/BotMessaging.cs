@@ -378,9 +378,7 @@ namespace Skuld.Services.Bot
             }
 
             if (!MessageTools.HasPrefix(message, BotService.Configuration.Prefix, BotService.Configuration.AltPrefix, sguild?.Prefix)) return;
-
-            Console.WriteLine($"{arg.Author}");
-
+            
             try
             {
                 using var Database = new SkuldDbContextFactory().CreateDbContext();
