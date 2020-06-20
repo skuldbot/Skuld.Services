@@ -40,6 +40,17 @@ namespace Skuld.Services.Gambling
             return this;
         }
 
+        /// <summary>
+        /// Sets the face value
+        /// </summary>
+        /// <param name="value">new value to set as the face</param>
+        /// <returns>The current instance of <see cref="Die"/></returns>
+        public Die SetFace(ushort value)
+        {
+            Face = value;
+            return this;
+        }
+
         public static bool operator ==(Die left, Die right)
             => left.Face == right.Face;
 

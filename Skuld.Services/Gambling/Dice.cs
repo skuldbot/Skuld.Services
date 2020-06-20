@@ -1,4 +1,5 @@
 ﻿using Skuld.Core.Extensions;
+using System;
 using System.Collections.Generic;
 
 namespace Skuld.Services.Gambling
@@ -21,7 +22,15 @@ namespace Skuld.Services.Gambling
             }
         }
 
-        public void SetDice(int amount)
+        public Dice(int amount, ulong maxValue) : this()
+        {
+            for (int x = 0; x < amount; x++)
+            {
+                dies.Add(new Die(maxValue));
+            }
+        }
+
+        public Dice SetDice(int amount)
         {
             dies.Clear();
 
@@ -29,6 +38,22 @@ namespace Skuld.Services.Gambling
             {
                 dies.Add(new Die());
             }
+
+            return this;
+        }
+
+        public Dice SetDieValue(int index, ushort amount)
+        {
+            if(index < DieAmount)
+            {
+                dies[index].SetFace(amount);
+            }
+            else
+            {
+                throw new IndexOutOfRangeException("Index is over or equal to length of array");
+            }
+
+            return this;
         }
 
         public ulong GetSumOfFaces()
