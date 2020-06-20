@@ -393,15 +393,15 @@ namespace Skuld.Services.Guilds.Starboard
 
                                 if (isStarboardMessage)
                                 {
-                                    var txtChan = await chan.Guild.GetTextChannelAsync(starboardVote.ChannelId).ConfigureAwait(false);
-
-                                    msg = await txtChan.GetMessageAsync(starboardVote.MessageId).ConfigureAwait(false);
-                                }
-                                else
-                                {
                                     var txtChan = await chan.Guild.GetTextChannelAsync(gld.StarboardChannel).ConfigureAwait(false);
 
                                     msg = await txtChan.GetMessageAsync(starboardVote.StarboardMessageId).ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    var txtChan = await chan.Guild.GetTextChannelAsync(starboardVote.ChannelId).ConfigureAwait(false);
+
+                                    msg = await txtChan.GetMessageAsync(starboardVote.MessageId).ConfigureAwait(false);
                                 }
 
                                 await msg.DeleteAsync().ConfigureAwait(false);
