@@ -85,6 +85,14 @@ namespace Skuld.Services.Extensions
 
                     luxp = result.Data;
                 }
+
+                if (luxp.Level == 0 && luxp.TotalXP != 0)
+                {
+                    luxp.Level = DatabaseUtilities.GetLevelFromTotalXP(
+                        luxp.TotalXP,
+                        DiscordUtilities.LevelModifier
+                    );
+                }
             }
             else
             {
@@ -100,7 +108,8 @@ namespace Skuld.Services.Extensions
                     LastGranted = now,
                     UserId = user.Id,
                     GuildId = id,
-                    TotalXP = amount
+                    TotalXP = amount,
+                    Level = 0
                 };
 
                 var result = await 
@@ -137,48 +146,62 @@ namespace Skuld.Services.Extensions
             var now = DateTime.UtcNow.ToEpoch();
             ulong levelAmount = 0;
 
-            if (xp.Level == 0 && xp.TotalXP != 0)
-            {
-                xp.Level = DatabaseUtilities.GetLevelFromTotalXP(
-                    xp.TotalXP,
-                    DiscordUtilities.LevelModifier
-                );
-            }
-
             DogStatsd.Increment("user.levels.xp.granted", (int)amount);
 
             DogStatsd.Increment("user.levels.processed");
 
-            var xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(
-                xp.Level + 1, 
+            xp.TotalXP = xp.TotalXP.Add(amount);
+
+            ulong xpCurrentLevel = DatabaseUtilities
+                .GetStackedXPLevelRequirement(
+                    xp.Level,
+                    DiscordUtilities.LevelModifier
+            );
+
+            ulong xpNextLevel = DatabaseUtilities.GetXPLevelRequirement(
+                xp.Level + 1,
                 DiscordUtilities.LevelModifier
             );
 
-            var currXp = xp.TotalXP.Add(amount).Subtract(xptonextlevel);
+            var currXp = xp.TotalXP - xpCurrentLevel;
 
-            while (currXp >= xptonextlevel)
+            while (currXp >= xpNextLevel)
             {
                 DogStatsd.Increment("user.levels.levelup");
 
                 levelAmount++;
-                currXp = currXp.Subtract(xptonextlevel);
-                xptonextlevel = DatabaseUtilities.GetXPLevelRequirement(
+                currXp = currXp.Subtract(xpNextLevel);
+                xpNextLevel = DatabaseUtilities.GetXPLevelRequirement(
                     xp.Level + 1 + levelAmount, 
                     DiscordUtilities.LevelModifier
                 );
-
-                if (action != null)
-                {
-                    action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
-                                  guild,
-                                  await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
-                                  context,
-                                  xp.Level + levelAmount);
-                }
             }
 
-            xp.TotalXP = xp.TotalXP.Add(amount);
-            xp.Level = xp.Level.Add(levelAmount);
+            try
+            {
+                if(levelAmount > 0)
+                {
+                    if (action != null)
+                    {
+                        action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
+                                      guild,
+                                      await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false),
+                                      context,
+                                      xp.Level + levelAmount);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("ExpSrvc", ex.Message, context??null, ex);
+            }
+
+            if(levelAmount != 0)
+            {
+                xp.Level = xp.Level.Add(levelAmount);
+            }
+
+            xp.MessagesSent = xp.MessagesSent.Add(1);
 
             if (!skipTimeCheck)
             {

@@ -499,6 +499,7 @@ namespace Skuld.Services.Bot
             DogStatsd.Increment("guild.users.joined");
 
             //Insert into Database
+            try
             {
                 using SkuldDbContext database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -506,8 +507,13 @@ namespace Skuld.Services.Bot
                 await database.InsertOrGetUserAsync(arg as IUser)
                     .ConfigureAwait(false);
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
 
             //Persistent Roles
+            try
             {
                 using SkuldDbContext database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -533,8 +539,13 @@ namespace Skuld.Services.Bot
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
 
             //Join Message
+            try
             {
                 using SkuldDbContext database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -571,8 +582,13 @@ namespace Skuld.Services.Bot
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
 
             //Experience Roles
+            try
             {
                 using SkuldDbContext database = 
                     new SkuldDbContextFactory()
@@ -647,6 +663,10 @@ namespace Skuld.Services.Bot
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
 
             Log.Verbose(Key, $"{arg} joined {arg.Guild}", null);
         }
@@ -655,30 +675,37 @@ namespace Skuld.Services.Bot
         {
             DogStatsd.Increment("guild.users.left");
 
-            using var db = new SkuldDbContextFactory().CreateDbContext();
-
-            var gld = await db
-                .InsertOrGetGuildAsync(arg.Guild)
-            .ConfigureAwait(false);
-
-            if (gld != null)
+            try
             {
-                if (gld.LeaveChannel != 0 && 
-                    !string.IsNullOrEmpty(gld.LeaveMessage)
-                )
+                using var db = new SkuldDbContextFactory().CreateDbContext();
+
+                var gld = await db
+                    .InsertOrGetGuildAsync(arg.Guild)
+                .ConfigureAwait(false);
+
+                if (gld != null)
                 {
-                    var channel = arg.Guild.GetTextChannel(gld.JoinChannel);
+                    if (gld.LeaveChannel != 0 &&
+                        !string.IsNullOrEmpty(gld.LeaveMessage)
+                    )
+                    {
+                        var channel = arg.Guild.GetTextChannel(gld.JoinChannel);
 
-                    var message = gld.LeaveMessage
-                        .ReplaceGuildEventMessage(
-                            arg as IUser, 
-                            arg.Guild as SocketGuild
-                        );
+                        var message = gld.LeaveMessage
+                            .ReplaceGuildEventMessage(
+                                arg as IUser,
+                                arg.Guild as SocketGuild
+                            );
 
-                    await channel
-                        .SendMessageAsync(message)
-                    .ConfigureAwait(false);
+                        await channel
+                            .SendMessageAsync(message)
+                        .ConfigureAwait(false);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
             }
 
             Log.Verbose(Key, $"{arg} left {arg.Guild}", null);
@@ -691,6 +718,7 @@ namespace Skuld.Services.Bot
         {
             if (arg1.IsBot || arg1.IsWebhook) return;
 
+            try
             {
                 using SkuldDbContext database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -709,6 +737,10 @@ namespace Skuld.Services.Bot
                     await database.SaveChangesAsync().ConfigureAwait(false);
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
         }
 
         #endregion Users
@@ -717,47 +749,61 @@ namespace Skuld.Services.Bot
 
         private static async Task Bot_LeftGuild(SocketGuild arg)
         {
-            using var database = new SkuldDbContextFactory().CreateDbContext();
-
-            DogStatsd.Increment("guilds.left");
-
-            await BotService.DiscordClient.SendDataAsync(
-                    BotService.Configuration.IsDevelopmentBuild, 
-                    BotService.Configuration.DiscordGGKey, 
-                    BotService.Configuration.DBotsOrgKey, 
-                    BotService.Configuration.B4DToken
-                )
-            .ConfigureAwait(false);
-
-            //MessageQueue.CheckForEmptyGuilds = true;
 
             Log.Verbose(Key, $"Just left {arg}", null);
+            DogStatsd.Increment("guilds.left");
+
+            try
+            {
+                using var database = new SkuldDbContextFactory().CreateDbContext();
+
+                await BotService.DiscordClient.SendDataAsync(
+                        BotService.Configuration.IsDevelopmentBuild,
+                        BotService.Configuration.DiscordGGKey,
+                        BotService.Configuration.DBotsOrgKey,
+                        BotService.Configuration.B4DToken
+                    )
+                .ConfigureAwait(false);
+
+                //MessageQueue.CheckForEmptyGuilds = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
         }
 
         private static async Task Bot_JoinedGuild(SocketGuild arg)
         {
-            using var database = new SkuldDbContextFactory().CreateDbContext();
-
             DogStatsd.Increment("guilds.joined");
-
-            await BotService.DiscordClient.SendDataAsync(
-                    BotService.Configuration.IsDevelopmentBuild, 
-                    BotService.Configuration.DiscordGGKey, 
-                    BotService.Configuration.DBotsOrgKey, 
-                    BotService.Configuration.B4DToken
-                )
-            .ConfigureAwait(false);
-
-            await database.InsertOrGetGuildAsync(
-                    arg, 
-                    BotService.Configuration.Prefix, 
-                    BotService.MessageServiceConfig.MoneyName, 
-                    BotService.MessageServiceConfig.MoneyIcon
-                )
-            .ConfigureAwait(false);
-
-            //MessageQueue.CheckForEmptyGuilds = true;
             Log.Verbose(Key, $"Just left {arg}", null);
+
+            try
+            {
+                using var database = new SkuldDbContextFactory().CreateDbContext();
+
+                await BotService.DiscordClient.SendDataAsync(
+                        BotService.Configuration.IsDevelopmentBuild,
+                        BotService.Configuration.DiscordGGKey,
+                        BotService.Configuration.DBotsOrgKey,
+                        BotService.Configuration.B4DToken
+                    )
+                .ConfigureAwait(false);
+
+                await database.InsertOrGetGuildAsync(
+                        arg,
+                        BotService.Configuration.Prefix,
+                        BotService.MessageServiceConfig.MoneyName,
+                        BotService.MessageServiceConfig.MoneyIcon
+                    )
+                .ConfigureAwait(false);
+
+                //MessageQueue.CheckForEmptyGuilds = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
         }
 
         private static async Task Bot_RoleDeleted(SocketRole arg)
@@ -766,6 +812,7 @@ namespace Skuld.Services.Bot
 
             #region LevelRewards
 
+            try
             {
                 using var database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -780,11 +827,16 @@ namespace Skuld.Services.Bot
                     await database.SaveChangesAsync().ConfigureAwait(false);
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
 
             #endregion LevelRewards
 
             #region PersistentRoles
 
+            try
             {
                 using var database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -799,11 +851,16 @@ namespace Skuld.Services.Bot
                     await database.SaveChangesAsync().ConfigureAwait(false);
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
 
             #endregion PersistentRoles
 
             #region IAmRoles
 
+            try
             {
                 using var database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -818,7 +875,12 @@ namespace Skuld.Services.Bot
                     await database.SaveChangesAsync().ConfigureAwait(false);
                 }
             }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
+            }
 
+            try
             {
                 using var database = new SkuldDbContextFactory()
                     .CreateDbContext();
@@ -833,6 +895,10 @@ namespace Skuld.Services.Bot
 
                     await database.SaveChangesAsync().ConfigureAwait(false);
                 }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("UsrJoin", ex.Message, null, ex);
             }
 
             #endregion IAmRoles
@@ -884,26 +950,33 @@ namespace Skuld.Services.Bot
             SocketGuild arg2
         )
         {
-            using SkuldDbContext Database = new SkuldDbContextFactory()
-                .CreateDbContext();
-
-            var sguild = await
-                Database.InsertOrGetGuildAsync(arg2)
-            .ConfigureAwait(false);
-
-            if (sguild.Name == null || 
-                !sguild.Name.Equals(arg2.Name))
+            try
             {
-                sguild.Name = arg2.Name;
-            }
+                using SkuldDbContext Database = new SkuldDbContextFactory()
+                    .CreateDbContext();
 
-            if (sguild.IconUrl == null || 
-                !sguild.IconUrl.Equals(arg2.IconUrl))
+                var sguild = await
+                    Database.InsertOrGetGuildAsync(arg2)
+                .ConfigureAwait(false);
+
+                if (sguild.Name == null ||
+                    !sguild.Name.Equals(arg2.Name))
+                {
+                    sguild.Name = arg2.Name;
+                }
+
+                if (sguild.IconUrl == null ||
+                    !sguild.IconUrl.Equals(arg2.IconUrl))
+                {
+                    sguild.IconUrl = arg2.IconUrl;
+                }
+
+                await Database.SaveChangesAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
             {
-                sguild.IconUrl = arg2.IconUrl;
+                Log.Error("UsrJoin", ex.Message, null, ex);
             }
-
-            await Database.SaveChangesAsync().ConfigureAwait(false);
         }
 
         private static async Task HandlePersistentRoleAdd(

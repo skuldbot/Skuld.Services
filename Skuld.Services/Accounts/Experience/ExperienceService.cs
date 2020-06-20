@@ -39,14 +39,6 @@ namespace Skuld.Services.Accounts.Experience
 
                 await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), null, message, null).ConfigureAwait(false);
 
-                var xp = Database.UserXp.FirstOrDefault(x => x.GuildId == guild.Id && x.UserId == user.Id);
-
-                var gxp = Database.UserXp.FirstOrDefault(x => x.GuildId == 0 && x.UserId == user.Id);
-
-                xp.MessagesSent = xp.MessagesSent.Add(1);
-
-                gxp.MessagesSent = gxp.MessagesSent.Add(1);
-
                 await Database.SaveChangesAsync().ConfigureAwait(false);
             }
             catch(Exception ex)
@@ -86,14 +78,17 @@ namespace Skuld.Services.Accounts.Experience
                     .ReplaceFirst("-l", level.ToFormattedString())
                     .ReplaceFirst("-r", rles);
 
-                try
+                if(msg.Contains("-jl"))
                 {
-                    msg = msg.ReplaceFirst("-jl", message.GetJumpUrl());
-                }
-                catch (Exception ex)
-                {
-                    msg = msg.ReplaceFirst("-jl", "");
-                    Log.Error("ExperienceService", ex.Message, null, ex);
+                    try
+                    {
+                        msg = msg.ReplaceFirst("-jl", message.GetJumpUrl());
+                    }
+                    catch (Exception ex)
+                    {
+                        msg = msg.ReplaceFirst("-jl", "");
+                        Log.Error("ExperienceService", ex.Message, null, ex);
+                    }
                 }
             }
             else
