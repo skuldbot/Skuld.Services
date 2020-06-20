@@ -8,16 +8,27 @@ namespace Skuld.Services.Banking
 {
     public static class TransactionService
     {
+        public static EventResult<bool> CanPerformTransaction(ulong money, ulong amount)
+        {
+            if(money < amount)
+            {
+                return EventResult<bool>.FromFailureException(
+                        "Sender doesn't have enough money",
+                        new TransactionException("Sender doesn't have enough money")
+                    );
+            }
+
+            return EventResult<bool>.FromSuccess(true);
+        }
+
         public static EventResult<bool> DoTransaction(TransactionStruct transaction)
         {
             if (transaction.Sender != null)
             {
-                if (transaction.Sender.Money < transaction.Amount)
+                var result = CanPerformTransaction(transaction.Sender.Money, transaction.Amount);
+                if (!result.Successful)
                 {
-                    return EventResult<bool>.FromFailureException(
-                        "Sender doesn't have enough money",
-                        new TransactionException("Sender doesn't have enough money")
-                    );
+                    return result;
                 }
 
                 transaction.Sender.Money = transaction.Sender.Money.Subtract(transaction.Amount);
