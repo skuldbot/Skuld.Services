@@ -135,14 +135,13 @@ namespace Skuld.Services.Gambling
                 .OrderByDescending(x => x.Face)
                 .ToArray();
 
-            if (!isHidden)
-            {
-                str.Append(string.Join(", ", dieArr.Select(x => x.Face.ToString()).ToArray()));
-            }
-            else
-            {
-                str.Append(string.Join(", ", dieArr.Select(x => x.Face.As("?")).ToArray()));
-            }
+            str.Append(
+                string.Join(
+                    ", ", 
+                    dieArr.Select(x => isHidden ? x.Face.As("?") : x.Face.ToString()
+                ).ToArray()
+                )
+            );
 
             str.Append(isHidden ? "||" : "");
 

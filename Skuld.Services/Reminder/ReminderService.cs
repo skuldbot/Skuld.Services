@@ -26,8 +26,6 @@ namespace Skuld.Services.Reminders
                 {
                     if (Database.Reminders.Any())
                     {
-                        bool hasChanged = false;
-
                         Database.Reminders.ToList().ForEach(async reminder =>
                         {
                             if (reminder.Timeout <= currentTime)
@@ -98,17 +96,12 @@ namespace Skuld.Services.Reminders
                                     );
                                 }
 
-                                hasChanged = true;
+                                await Database.SaveChangesAsync()
+                                    .ConfigureAwait(false);
                             }
                         });
 
-                        if (hasChanged)
-                        {
-                            await Database.SaveChangesAsync()
-                                .ConfigureAwait(false);
-
-                            hasChanged = false;
-                        }
+                        
                     }
                 }
 
