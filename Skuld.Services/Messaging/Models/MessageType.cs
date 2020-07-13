@@ -5,7 +5,6 @@
         Standard,
         Timed,
         DMS,
-        DMFail,
         File,
         Mention,
         MentionFile

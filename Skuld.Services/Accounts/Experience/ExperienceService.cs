@@ -7,6 +7,7 @@ using Skuld.Core.Utilities;
 using Skuld.Models;
 using Skuld.Services.Bot;
 using Skuld.Services.Extensions;
+using Skuld.Services.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -166,7 +167,7 @@ namespace Skuld.Services.Accounts.Experience
                                 if (channel != null)
                                 {
                                     await
-                                        channel.SendMessageAsync(msg)
+                                        MessageSender.ReplyAsync(channel, msg)
                                     .ConfigureAwait(false);
                                 }
                                 else
@@ -176,7 +177,9 @@ namespace Skuld.Services.Accounts.Experience
                                     .ConfigureAwait(false);
 
                                     await
-                                        owner.SendMessageAsync($"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`")
+                                        MessageSender.ReplyAsync(owner, 
+                                        $"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`"
+                                    )
                                     .ConfigureAwait(false);
                                 }
                             }
