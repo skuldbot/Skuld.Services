@@ -154,70 +154,77 @@ namespace Skuld.Services.Accounts.Experience
                     }
                 }
 
-                switch (dbGuild.LevelNotification)
-                {
-                    case LevelNotification.Channel:
+                await
+                    HandleMessageSend(user, guild, dbGuild, context, msg)
+                .ConfigureAwait(false);
+            });
+
+        static async Task HandleMessageSend(IGuildUser user, IGuild guild, Guild dbGuild, ShardedCommandContext context, string msg)
+        {
+            switch (dbGuild.LevelNotification)
+            {
+                case LevelNotification.Channel:
+                    {
+                        if (dbGuild.LevelUpChannel != 0)
                         {
-                            if (dbGuild.LevelUpChannel != 0)
+                            var channel = await
+                                guild.GetTextChannelAsync(dbGuild.LevelUpChannel)
+                            .ConfigureAwait(false);
+
+                            if (channel != null)
                             {
-                                var channel = await
-                                    guild.GetTextChannelAsync(dbGuild.LevelUpChannel)
+                                await
+                                    MessageSender.ReplyAsync(channel, msg)
                                 .ConfigureAwait(false);
-
-                                if (channel != null)
-                                {
-                                    await
-                                        MessageSender.ReplyAsync(channel, msg)
-                                    .ConfigureAwait(false);
-                                }
-                                else
-                                {
-                                    var owner = await
-                                        guild.GetOwnerAsync()
-                                    .ConfigureAwait(false);
-
-                                    await
-                                        MessageSender.ReplyAsync(owner, 
-                                        $"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`"
-                                    )
-                                    .ConfigureAwait(false);
-                                }
                             }
                             else
                             {
+                                var owner = await
+                                    guild.GetOwnerAsync()
+                                .ConfigureAwait(false);
+
                                 await
-                                    context.Message.Channel.SendMessageAsync(msg)
+                                    MessageSender.ReplyAsync(owner,
+                                    $"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`"
+                                )
                                 .ConfigureAwait(false);
                             }
                         }
-                        break;
-
-                    case LevelNotification.DM:
+                        else
                         {
-                            try
-                            {
-                                await
-                                    user.SendMessageAsync($"**{guild.Name}:** " + msg)
-                                .ConfigureAwait(false);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error(
-                                    "ExperienceService", 
-                                    "Failed sending level up message to DMs, " +
-                                    "most likely disabled DMs", 
-                                    context,
-                                    ex
-                                );
-                            }
+                            await
+                                MessageSender.ReplyAsync(context.Message.Channel, msg)
+                            .ConfigureAwait(false);
                         }
-                        break;
+                    }
+                    break;
 
-                    case LevelNotification.None:
-                    default:
-                        break;
-                }
-            });
+                case LevelNotification.DM:
+                    {
+                        try
+                        {
+                            await
+                                MessageSender.ReplyAsync(user, $"**{guild.Name}:** " + msg)
+                            .ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Error(
+                                "ExperienceService",
+                                "Failed sending level up message to DMs, " +
+                                "most likely disabled DMs",
+                                context,
+                                ex
+                            );
+                        }
+                    }
+                    break;
+
+                case LevelNotification.None:
+                default:
+                    break;
+            }
+        }
 
         public static Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong> VoiceAction = new Action<IGuildUser, IGuild, Guild, ShardedCommandContext, ulong>(
             async (user, guild, dbGuild, context, level) =>
@@ -261,61 +268,9 @@ namespace Skuld.Services.Accounts.Experience
                     }
                 }
 
-                switch (dbGuild.LevelNotification)
-                {
-                    case LevelNotification.Channel:
-                        {
-                            if (dbGuild.LevelUpChannel != 0)
-                            {
-                                var channel = await
-                                    guild.GetTextChannelAsync(dbGuild.LevelUpChannel)
-                                .ConfigureAwait(false);
-
-                                if (channel != null)
-                                {
-                                    await 
-                                        channel.SendMessageAsync(msg)
-                                    .ConfigureAwait(false);
-                                }
-                                else
-                                {
-                                    var owner = await 
-                                        guild.GetOwnerAsync()
-                                    .ConfigureAwait(false);
-
-                                    await
-                                        owner.SendMessageAsync($"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`")
-                                    .ConfigureAwait(false);
-                                }
-                            }
-                        }
-                        break;
-
-                    case LevelNotification.DM:
-                        {
-                            try
-                            {
-                                await
-                                    user.SendMessageAsync($"**{guild.Name}:** " + msg)
-                                .ConfigureAwait(false);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error(
-                                    "ExperienceService", 
-                                    "Failed sending level up message to DMs, " +
-                                    "most likely disabled DMs", 
-                                    context,
-                                    ex
-                                );
-                            }
-                        }
-                        break;
-
-                    case LevelNotification.None:
-                    default:
-                        break;
-                }
+                await
+                    HandleMessageSend(user, guild, dbGuild, context, msg)
+                .ConfigureAwait(false);
             });
     }
 }
