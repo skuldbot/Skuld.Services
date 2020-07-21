@@ -97,7 +97,9 @@ namespace Skuld.Services.Guilds.Starboard
                 }
             }
 
-            embed.WithDescription(embed.Description + $"\n\n[Message Link]({message.GetJumpUrl()})");
+            embed.WithDescription(embed.Description);
+
+            embed.AddInlineField("View Original", $"[Message Link]({message.GetJumpUrl()})");
 
             string reactionRange = dbGuild.StarEmote;
 
@@ -386,27 +388,15 @@ namespace Skuld.Services.Guilds.Starboard
                                 totalCount = Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id);
                             }
 
-                            if (totalCount == 0)
+                            if (totalCount == 0 && isStarboardMessage)
                             {
                                 var chan = message.Channel as ITextChannel;
-                                IMessage msg = null;
 
-                                if (isStarboardMessage)
-                                {
-                                    var txtChan = await chan.Guild.GetTextChannelAsync(gld.StarboardChannel).ConfigureAwait(false);
+                                var txtChan = await chan.Guild.GetTextChannelAsync(gld.StarboardChannel).ConfigureAwait(false);
 
-                                    msg = await txtChan.GetMessageAsync(starboardVote.StarboardMessageId).ConfigureAwait(false);
-                                }
-                                else
-                                {
-                                    var txtChan = await chan.Guild.GetTextChannelAsync(starboardVote.ChannelId).ConfigureAwait(false);
-
-                                    msg = await txtChan.GetMessageAsync(starboardVote.MessageId).ConfigureAwait(false);
-                                }
+                                IMessage msg = await txtChan.GetMessageAsync(starboardVote.StarboardMessageId).ConfigureAwait(false);
 
                                 await msg.DeleteAsync().ConfigureAwait(false);
-
-                                await message.DeleteAsync().ConfigureAwait(false);
                             }
                             else
                             {
