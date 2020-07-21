@@ -217,6 +217,28 @@ namespace Skuld.Services.Bot
                     }
                 }
 
+                //Sentry
+                {
+                    var sentryKey = Environment.GetEnvironmentVariable(SkuldAppContext.SentryIOEnvVar);
+
+                    Sentry.ISentryClient sentryClient = null;
+                    if (sentryKey != null)
+                    {
+                        Log.Info("HostService", "Sentry Key provided, enabling Sentry");
+                        sentryClient = new Sentry.SentryClient(new Sentry.SentryOptions
+                        {
+                            Dsn = new Sentry.Dsn(sentryKey)
+                        });
+                    }
+                    else
+                    {
+                        Log.Info("HostService", "Sentry Key not provided, not using Sentry");
+                    }
+
+                    Log.Configure(sentryClient);
+                    localServices.AddSingleton(sentryClient);
+                }
+
                 localServices.AddSingleton(new InteractiveService(DiscordClient, TimeSpan.FromSeconds(60)));
 
                 Services = localServices.BuildServiceProvider();
