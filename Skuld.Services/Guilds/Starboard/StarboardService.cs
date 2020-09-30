@@ -1,418 +1,427 @@
 ﻿using Discord;
-using Discord.Commands;
 using Discord.WebSocket;
 using Skuld.Core.Extensions;
+using Skuld.Core.Extensions.Conversion;
 using Skuld.Core.Extensions.Verification;
 using Skuld.Core.Utilities;
 using Skuld.Models;
-using Skuld.Services.Bot;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace Skuld.Services.Guilds.Starboard
 {
-    public static class StarboardService
-    {
-        const string Key = "StarboardService";
-        static readonly Color StarboardColor = new Color(255, 255, 0);
+	public static class StarboardService
+	{
+		const string Key = "StarboardService";
+		static readonly Color StarboardNewEntry = new Color(255, 85, 0);
+		static readonly Color StarboardColor = new Color(255, 255, 0);
 
-        static async Task<bool> IsWhitelistedAsync(Guild dbGuild, IMessage message, ITextChannel channel, ulong reactorId)
-        {
-            if (!dbGuild.SelfStarring && reactorId == message.Author.Id) return false;
+		static Color StarColour(double current, ulong max)
+			=> StarboardNewEntry.Lerp(StarboardColor, current.Remap(0, max, 0, 1));
 
-            using var Database = new SkuldDbContextFactory().CreateDbContext();
-            var blacklist = Database.StarboardBlacklist.ToList().Where(x => x.GuildId == channel.Guild.Id);
-            var whitelist = Database.StarboardWhitelist.ToList().Where(x => x.GuildId == channel.Guild.Id);
+		#region Events
+		public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
+		{
+			try
+			{
+				if (channel is ITextChannel guildChannel)
+				{
+					var guild = guildChannel.Guild;
+					var botUser = await guild.GetCurrentUserAsync().ConfigureAwait(false);
 
-            if (dbGuild.StarboardChannel == 0) return false;
+					using var Database = new SkuldDbContextFactory().CreateDbContext();
+					var feats = Database.Features.Find(guild.Id);
+					var blacklist = Database.StarboardBlacklist.ToList().Where(x => x.GuildId == guild.Id);
+					var whitelist = Database.StarboardWhitelist.ToList().Where(x => x.GuildId == guild.Id);
 
-            var chan = await channel.Guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
-            if (chan == null) return false;
+					if (feats.Starboard)
+					{
+						var gld = await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false);
+						if (!await IsWhitelistedAsync(gld, message, guildChannel, reaction.UserId).ConfigureAwait(false)) return;
 
-            if (channel.IsNsfw && !chan.IsNsfw) return false;
+						if (gld.StarEmote == reaction.Emote.ToString())
+						{
+							IEmote emote;
+							if (gld.StarEmote.Contains(":"))
+							{
+								emote = Emote.Parse(gld.StarEmote);
+							}
+							else
+							{
+								emote = new Emoji(gld.StarEmote);
+							}
+							if (message.Reactions.TryGetValue(emote, out ReactionMetadata reactions))
+							{
+								if (Database.StarboardVotes.Any(x => x.MessageId == message.Id) ||
+									Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id)
+								)
+								{
+									if (!Database.StarboardVotes.Any(x => x.MessageId == message.Id && x.VoterId == reaction.UserId) ||
+										!Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id && x.VoterId == reaction.UserId))
+									{
+										if (Database.StarboardVotes.Any(x => x.MessageId == message.Id && x.StarboardMessageId != 0))
+										{
+											if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
+											{
+												var starboardedMessage = Database.StarboardVotes.FirstOrDefault(x => x.MessageId == message.Id && x.StarboardMessageId != 0);
 
-            if (!blacklist.Any()) return true;
-            if (blacklist.Any(x => x.TargetId == reactorId)) return false;
+												Database.StarboardVotes.Add(new StarboardVote
+												{
+													MessageId = starboardedMessage.MessageId,
+													VoterId = reaction.UserId,
+													StarboardMessageId = starboardedMessage.StarboardMessageId,
+													MessageAuthorId = starboardedMessage.MessageAuthorId,
+													ChannelId = starboardedMessage.ChannelId,
+													GuildId = starboardedMessage.GuildId,
+													WasSourceMessageReaction = true
+												});
 
-            if(channel.CategoryId != null)
-            {
-                if(blacklist.Any(x=>x.TargetId == channel.CategoryId))
-                {
-                    if (whitelist.Any(x => x.TargetId == channel.Id)) return true;
+												await Database.SaveChangesAsync().ConfigureAwait(false);
 
-                    return false;
-                }
-            }
-            else
-            {
-                if (blacklist.Any(x => x.TargetId == channel.Id)) return false;
-            }
+												await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.MessageId == message.Id)).ConfigureAwait(false);
+											}
+										}
+										else if (Database.StarboardVotes.Any(x => x.MessageId == message.Id && x.StarboardMessageId == 0))
+										{
+											if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
+											{
+												var vote = new StarboardVote
+												{
+													MessageId = message.Id,
+													VoterId = reaction.UserId,
+													MessageAuthorId = message.Author.Id,
+													ChannelId = message.Channel.Id,
+													GuildId = guild.Id,
+													WasSourceMessageReaction = true
+												};
 
-            return true;
-        }
+												var reactionCount = Database.StarboardVotes.Count(x => x.MessageId == message.Id) + 1;
 
-        static async Task<IUserMessage> SendMessageAsync(IMessage message, IGuild guild, Guild dbGuild, int Reactions)
-        {
-            var embed = new EmbedBuilder()
-                    .WithAuthor(message.Author.FullName(), message.Author.GetAvatarUrl() ?? message.Author.GetDefaultAvatarUrl())
-                    .WithDescription(message.Content)
-                    .WithColor(StarboardColor)
-                    .WithFooter($"MessageID: {message.Id}")
-                    .WithTimestamp(message.CreatedAt);
+												if (reactionCount >= gld.StarReactAmount)
+												{
+													var sentMessage = await SendMessageAsync(message, guild, gld, reactionCount).ConfigureAwait(false);
 
-            if(message.Attachments.Any())
-            {
-                var attachment = message.Attachments.FirstOrDefault();
+													vote.StarboardMessageId = sentMessage.Id;
 
-                if(attachment.Url.IsImageExtension())
-                {
-                    embed.WithImageUrl(attachment.Url);
-                }
-                else
-                {
-                    embed.WithDescription(embed.Description + $"\n[With Attachment]({attachment.Url})");
-                }
-            }
-            else if (message.Embeds.Any())
-            {
-                var emb = message.Embeds.FirstOrDefault();
+													await Database.StarboardVotes.ForEachAsync(x =>
+													{
+														if (x.MessageId == message.Id)
+														{
+															x.StarboardMessageId = sentMessage.Id;
+														}
+													}).ConfigureAwait(false);
+												}
 
-                if (string.IsNullOrEmpty(message.Content) && !string.IsNullOrEmpty(emb.Description))
-                {
-                    embed = embed.WithDescription(emb.Description);
-                }
+												Database.StarboardVotes.Add(vote);
 
-                if(emb.Image.HasValue)
-                {
-                    embed.WithImageUrl(emb.Image.Value.Url);
-                }
-                else if (emb.Video.HasValue)
-                {
-                    embed.WithDescription(embed.Description + $"\n[With Video]({emb.Video.Value.Url})");
-                }
-                else if (emb.Url.IsImageExtension())
-                {
-                    embed.WithImageUrl(emb.Url);
-                }
-            }
+												await Database.SaveChangesAsync().ConfigureAwait(false);
+											}
+										}
+										else if (Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id))
+										{
+											if (!Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id && x.VoterId == reaction.UserId))
+											{
+												var starboardedMessage = Database.StarboardVotes.FirstOrDefault(x => x.StarboardMessageId == message.Id);
+												if (!gld.SelfStarring && reaction.UserId == starboardedMessage.MessageAuthorId) return;
 
-            embed.WithDescription(embed.Description);
+												Database.StarboardVotes.Add(new StarboardVote
+												{
+													MessageId = starboardedMessage.MessageId,
+													VoterId = reaction.UserId,
+													StarboardMessageId = starboardedMessage.StarboardMessageId,
+													MessageAuthorId = starboardedMessage.MessageAuthorId,
+													ChannelId = starboardedMessage.ChannelId,
+													GuildId = starboardedMessage.GuildId,
+													WasSourceMessageReaction = false
+												});
 
-            embed.AddInlineField("View Original", $"[Message Link]({message.GetJumpUrl()})");
+												await Database.SaveChangesAsync().ConfigureAwait(false);
 
-            string reactionRange = dbGuild.StarEmote;
+												await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id)).ConfigureAwait(false);
+											}
+										}
+									}
+								}
+								else
+								{
+									if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
+									{
+										Database.StarboardVotes.Add(new StarboardVote
+										{
+											MessageId = message.Id,
+											VoterId = reaction.UserId,
+											MessageAuthorId = message.Author.Id,
+											ChannelId = message.Channel.Id,
+											GuildId = guild.Id,
+											WasSourceMessageReaction = true
+										});
 
-            if (Reactions >= 10)
-            {
-                reactionRange = dbGuild.StarRange1;
-            }
-            if (Reactions >= 20)
-            {
-                reactionRange = dbGuild.StarRange2;
-            }
-            if (Reactions >= 30)
-            {
-                reactionRange = dbGuild.StarRange3;
-            }
+										await Database.SaveChangesAsync().ConfigureAwait(false);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Log.Critical(Key, ex.Message, null, ex);
+			}
+		}
 
-            var chan = await guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
+		public static async Task ExecuteRemovalAsync(IMessage message, ulong reactorId)
+		{
+			try
+			{
+				if (message.Channel is IGuildChannel guildChannel)
+				{
+					var guild = guildChannel.Guild;
 
-            var msg = await chan.SendMessageAsync($"{reactionRange} {Reactions} | <#{message.Channel.Id}>", embed: embed.Build()).ConfigureAwait(false);
+					using var Database = new SkuldDbContextFactory().CreateDbContext();
+					var gld = Database.Guilds.Find(guild.Id);
 
-            if(Emote.TryParse(dbGuild.StarEmote, out var emote))
-            {
-                await msg.AddReactionAsync(emote).ConfigureAwait(false);
-            }
-            else
-            {
-                await msg.AddReactionAsync(new Emoji(dbGuild.StarEmote)).ConfigureAwait(false);
-            }
+					StarboardVote starboardVote = Database.StarboardVotes.Find(message.Id, reactorId);
 
-            return msg; 
-        }
+					bool didChange = false;
 
-        static async Task<bool> UpdateMessageAsync(IGuild guild, Guild dbGuild, ulong starboardedMessage, int Reactions)
-        {
-            var starboard = await guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
+					if (starboardVote != null)
+					{
+						bool isStarboardMessage = starboardVote.StarboardMessageId == message.Id;
 
-            if (!(await starboard.GetMessageAsync(starboardedMessage).ConfigureAwait(false) is IUserMessage message))
-            {
-                return false;
-            }
+						if (starboardVote.WasSourceMessageReaction && starboardVote.MessageId == message.Id)
+						{
+							if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
+							{
+								Database.StarboardVotes.Remove(starboardVote);
+								didChange = true;
+							}
+						}
+						else if (!starboardVote.WasSourceMessageReaction && starboardVote.StarboardMessageId == message.Id)
+						{
+							isStarboardMessage = true;
+							Database.StarboardVotes.Remove(starboardVote);
+							didChange = true;
+						}
 
-            if(Reactions < dbGuild.StarRemoveAmount)
-            {
-                using var database = new SkuldDbContextFactory().CreateDbContext();
+						if (didChange)
+						{
+							await Database.SaveChangesAsync().ConfigureAwait(false);
 
-                database.StarboardVotes.ToList().Where(x => x.StarboardMessageId == starboardedMessage && !x.WasSourceMessageReaction).ToList().ForEach(x =>
-                  {
-                      x.StarboardMessageId = 0;
-                  });
+							int totalCount = 0;
 
-                await database.SaveChangesAsync().ConfigureAwait(false);
+							if (Database.StarboardVotes.Any(x => x.MessageId == message.Id))
+							{
+								totalCount = Database.StarboardVotes.Count(x => x.MessageId == message.Id);
+							}
+							else if (Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id))
+							{
+								totalCount = Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id);
+							}
 
-                await message.DeleteAsync().ConfigureAwait(false);
+							if (totalCount == 0 && isStarboardMessage)
+							{
+								var chan = message.Channel as ITextChannel;
 
-                return false;
-            }
-            else
-            {
-                string reactionRange = dbGuild.StarEmote;
+								var txtChan = await chan.Guild.GetTextChannelAsync(gld.StarboardChannel).ConfigureAwait(false);
 
-                if (Reactions >= 10)
-                {
-                    reactionRange = dbGuild.StarRange1;
-                }
-                if (Reactions >= 20)
-                {
-                    reactionRange = dbGuild.StarRange2;
-                }
-                if (Reactions >= 30)
-                {
-                    reactionRange = dbGuild.StarRange3;
-                }
+								IMessage msg = await txtChan.GetMessageAsync(starboardVote.StarboardMessageId).ConfigureAwait(false);
 
-                var splitSection = message.Content.Split(" | ");
+								await msg.DeleteAsync().ConfigureAwait(false);
+							}
+							else
+							{
+								if (starboardVote.StarboardMessageId != 0)
+								{
+									await UpdateMessageAsync(guild, gld, starboardVote.StarboardMessageId, totalCount).ConfigureAwait(false);
+								}
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Log.Critical(Key, ex.Message, null, ex);
+			}
+		}
+		#endregion
 
-                await message.ModifyAsync(x =>
-                {
-                    x.Content = $"{reactionRange} {Reactions} | {splitSection[1]}";
-                }).ConfigureAwait(false);
+		static async Task<bool> IsWhitelistedAsync(Guild dbGuild, IMessage message, ITextChannel channel, ulong reactorId)
+		{
+			if (!dbGuild.SelfStarring && reactorId == message.Author.Id) return false;
 
-                return true;
-            }
-        }
+			using var Database = new SkuldDbContextFactory().CreateDbContext();
+			var blacklist = Database.StarboardBlacklist.ToList().Where(x => x.GuildId == channel.Guild.Id);
+			var whitelist = Database.StarboardWhitelist.ToList().Where(x => x.GuildId == channel.Guild.Id);
 
-        public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
-        {
-            try
-            {
-                if (channel is ITextChannel guildChannel)
-                {
-                    var guild = guildChannel.Guild;
-                    var botUser = await guild.GetCurrentUserAsync().ConfigureAwait(false);
+			if (dbGuild.StarboardChannel == 0) return false;
 
-                    using var Database = new SkuldDbContextFactory().CreateDbContext();
-                    var feats = Database.Features.FirstOrDefault(x => x.Id == guild.Id);
-                    var blacklist = Database.StarboardBlacklist.ToList().Where(x => x.GuildId == guild.Id);
-                    var whitelist = Database.StarboardWhitelist.ToList().Where(x => x.GuildId == guild.Id);
+			var chan = await channel.Guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
+			if (chan == null) return false;
 
-                    if (feats.Starboard)
-                    {
-                        var gld = await Database.InsertOrGetGuildAsync(guild).ConfigureAwait(false);
-                        if (!await IsWhitelistedAsync(gld, message, guildChannel, reaction.UserId).ConfigureAwait(false)) return;
+			if (channel.IsNsfw && !chan.IsNsfw) return false;
 
-                        if (gld.StarEmote == reaction.Emote.ToString())
-                        {
-                            IEmote emote;
-                            if(gld.StarEmote.Contains(":"))
-                            {
-                                emote = Emote.Parse(gld.StarEmote);
-                            }
-                            else
-                            {
-                                emote = new Emoji(gld.StarEmote);
-                            }
-                            if (message.Reactions.TryGetValue(emote, out ReactionMetadata reactions))
-                            {
-                                if (Database.StarboardVotes.Any(x => x.MessageId == message.Id) ||
-                                    Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id)
-                                )
-                                {
-                                    if (!Database.StarboardVotes.Any(x => x.MessageId == message.Id && x.VoterId == reaction.UserId) ||
-                                        !Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id && x.VoterId == reaction.UserId))
-                                    {
-                                        if (Database.StarboardVotes.Any(x => x.MessageId == message.Id && x.StarboardMessageId != 0))
-                                        {
-                                            if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
-                                            {
-                                                var starboardedMessage = Database.StarboardVotes.FirstOrDefault(x => x.MessageId == message.Id && x.StarboardMessageId != 0);
+			if (!blacklist.Any()) return true;
+			if (blacklist.Any(x => x.TargetId == reactorId)) return false;
 
-                                                Database.StarboardVotes.Add(new StarboardVote
-                                                {
-                                                    MessageId = starboardedMessage.MessageId,
-                                                    VoterId = reaction.UserId,
-                                                    StarboardMessageId = starboardedMessage.StarboardMessageId,
-                                                    MessageAuthorId = starboardedMessage.MessageAuthorId,
-                                                    ChannelId = starboardedMessage.ChannelId,
-                                                    GuildId = starboardedMessage.GuildId,
-                                                    WasSourceMessageReaction = true
-                                                });
+			if (channel.CategoryId != null)
+			{
+				if (blacklist.Any(x => x.TargetId == channel.CategoryId))
+				{
+					if (whitelist.Any(x => x.TargetId == channel.Id)) return true;
 
-                                                await Database.SaveChangesAsync().ConfigureAwait(false);
+					return false;
+				}
+			}
+			else
+			{
+				if (blacklist.Any(x => x.TargetId == channel.Id)) return false;
+			}
 
-                                                await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.MessageId == message.Id)).ConfigureAwait(false);
-                                            }
-                                        }
-                                        else if (Database.StarboardVotes.Any(x => x.MessageId == message.Id && x.StarboardMessageId == 0))
-                                        {
-                                            if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
-                                            {
-                                                var vote = new StarboardVote
-                                                {
-                                                    MessageId = message.Id,
-                                                    VoterId = reaction.UserId,
-                                                    MessageAuthorId = message.Author.Id,
-                                                    ChannelId = message.Channel.Id,
-                                                    GuildId = guild.Id,
-                                                    WasSourceMessageReaction = true
-                                                };
+			return true;
+		}
 
-                                                var reactionCount = Database.StarboardVotes.Count(x => x.MessageId == message.Id)+1;
+		#region Messages
+		static async Task<IUserMessage> SendMessageAsync(IMessage message, IGuild guild, Guild dbGuild, int Reactions)
+		{
+			var embed = new EmbedBuilder()
+					.WithAuthor(message.Author.FullName(), message.Author.GetAvatarUrl() ?? message.Author.GetDefaultAvatarUrl())
+					.WithDescription(message.Content)
+					.WithColor(StarColour(Reactions, 30))
+					.WithFooter($"MessageID: {message.Id}")
+					.WithTimestamp(message.CreatedAt);
 
-                                                if (reactionCount >= gld.StarReactAmount)
-                                                {
-                                                    var sentMessage = await SendMessageAsync(message, guild, gld, reactionCount).ConfigureAwait(false);
+			if (message.Attachments.Any())
+			{
+				var attachment = message.Attachments.FirstOrDefault();
 
-                                                    vote.StarboardMessageId = sentMessage.Id;
+				if (attachment.Url.IsImageExtension())
+				{
+					embed.WithImageUrl(attachment.Url);
+				}
+				else
+				{
+					embed.WithDescription(embed.Description + $"\n[With Attachment]({attachment.Url})");
+				}
+			}
+			else if (message.Embeds.Any())
+			{
+				var emb = message.Embeds.FirstOrDefault();
 
-                                                    await Database.StarboardVotes.ForEachAsync(x =>
-                                                    {
-                                                        if (x.MessageId == message.Id)
-                                                        {
-                                                            x.StarboardMessageId = sentMessage.Id;
-                                                        }
-                                                    }).ConfigureAwait(false);
-                                                }
+				if (string.IsNullOrEmpty(message.Content) && !string.IsNullOrEmpty(emb.Description))
+				{
+					embed = embed.WithDescription(emb.Description);
+				}
 
-                                                Database.StarboardVotes.Add(vote);
+				if (emb.Image.HasValue)
+				{
+					embed.WithImageUrl(emb.Image.Value.Url);
+				}
+				else if (emb.Video.HasValue)
+				{
+					embed.WithDescription(embed.Description + $"\n[With Video]({emb.Video.Value.Url})");
+				}
+				else if (emb.Url.IsImageExtension())
+				{
+					embed.WithImageUrl(emb.Url);
+				}
+			}
 
-                                                await Database.SaveChangesAsync().ConfigureAwait(false);
-                                            }
-                                        }
-                                        else if (Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id))
-                                        {
-                                            if(!Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id && x.VoterId == reaction.UserId))
-                                            {
-                                                var starboardedMessage = Database.StarboardVotes.FirstOrDefault(x => x.StarboardMessageId == message.Id);
-                                                if (!gld.SelfStarring && reaction.UserId == starboardedMessage.MessageAuthorId) return;
+			embed.WithDescription(embed.Description);
 
-                                                Database.StarboardVotes.Add(new StarboardVote
-                                                {
-                                                    MessageId = starboardedMessage.MessageId,
-                                                    VoterId = reaction.UserId,
-                                                    StarboardMessageId = starboardedMessage.StarboardMessageId,
-                                                    MessageAuthorId = starboardedMessage.MessageAuthorId,
-                                                    ChannelId = starboardedMessage.ChannelId,
-                                                    GuildId = starboardedMessage.GuildId,
-                                                    WasSourceMessageReaction = false
-                                                });
+			embed.AddInlineField("View Original", $"[Message Link]({message.GetJumpUrl()})");
 
-                                                await Database.SaveChangesAsync().ConfigureAwait(false);
+			string reactionRange = dbGuild.StarEmote;
 
-                                                await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id)).ConfigureAwait(false);
-                                            }
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
-                                    {
-                                        Database.StarboardVotes.Add(new StarboardVote
-                                        {
-                                            MessageId = message.Id,
-                                            VoterId = reaction.UserId,
-                                            MessageAuthorId = message.Author.Id,
-                                            ChannelId = message.Channel.Id,
-                                            GuildId = guild.Id,
-                                            WasSourceMessageReaction = true
-                                        });
+			if (Reactions >= 10)
+			{
+				reactionRange = dbGuild.StarRange1;
+			}
+			if (Reactions >= 20)
+			{
+				reactionRange = dbGuild.StarRange2;
+			}
+			if (Reactions >= 30)
+			{
+				reactionRange = dbGuild.StarRange3;
+			}
 
-                                        await Database.SaveChangesAsync().ConfigureAwait(false);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Critical(Key, ex.Message, null, ex);
-            }
-        }
-        
-        public static async Task ExecuteRemovalAsync(IMessage message, ulong reactorId)
-        {
-            try
-            {
-                if (message.Channel is IGuildChannel guildChannel)
-                {
-                    var guild = guildChannel.Guild;
+			var chan = await guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
 
-                    StarboardVote starboardVote = null;
-                    bool isStarboardMessage = false;
+			var msg = await chan.SendMessageAsync($"{reactionRange} {Reactions} | <#{message.Channel.Id}>", embed: embed.Build()).ConfigureAwait(false);
 
-                    using var Database = new SkuldDbContextFactory().CreateDbContext();
-                    var gld = Database.Guilds.FirstOrDefault(x => x.Id == guild.Id);
-                    bool didChange = false;
+			if (Emote.TryParse(dbGuild.StarEmote, out var emote))
+			{
+				await msg.AddReactionAsync(emote).ConfigureAwait(false);
+			}
+			else
+			{
+				await msg.AddReactionAsync(new Emoji(dbGuild.StarEmote)).ConfigureAwait(false);
+			}
 
-                    starboardVote = Database.StarboardVotes.FirstOrDefault(x => x.MessageId == message.Id && x.VoterId == reactorId);
+			return msg;
+		}
 
-                    if(starboardVote == null)
-                    {
-                        starboardVote = Database.StarboardVotes.FirstOrDefault(x => x.StarboardMessageId == message.Id && x.VoterId == reactorId);
-                    }
+		static async Task<bool> UpdateMessageAsync(IGuild guild, Guild dbGuild, ulong starboardedMessage, int Reactions)
+		{
+			var starboard = await guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
 
-                    if(starboardVote != null)
-                    {
-                        if (starboardVote.WasSourceMessageReaction && starboardVote.MessageId == message.Id)
-                        {
-                            if (message.Timestamp >= DateTime.UtcNow.AddDays(-7))
-                            {
-                                Database.StarboardVotes.Remove(starboardVote);
-                                didChange = true;
-                            }
-                        }
-                        else if (!starboardVote.WasSourceMessageReaction && starboardVote.StarboardMessageId == message.Id)
-                        {
-                            isStarboardMessage = true;
-                            Database.StarboardVotes.Remove(starboardVote);
-                            didChange = true;
-                        }
+			if (!(await starboard.GetMessageAsync(starboardedMessage).ConfigureAwait(false) is IUserMessage message))
+			{
+				return false;
+			}
 
-                        if (didChange)
-                        {
-                            await Database.SaveChangesAsync().ConfigureAwait(false);
+			if (Reactions < dbGuild.StarRemoveAmount)
+			{
+				using var database = new SkuldDbContextFactory().CreateDbContext();
 
-                            int totalCount = 0;
+				database.StarboardVotes.ToList().Where(x => x.StarboardMessageId == starboardedMessage && !x.WasSourceMessageReaction).ToList().ForEach(x =>
+				  {
+					  x.StarboardMessageId = 0;
+				  });
 
-                            if (Database.StarboardVotes.Any(x => x.MessageId == message.Id))
-                            {
-                                totalCount = Database.StarboardVotes.Count(x => x.MessageId == message.Id);
-                            }
-                            else if (Database.StarboardVotes.Any(x => x.StarboardMessageId == message.Id))
-                            {
-                                totalCount = Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id);
-                            }
+				await database.SaveChangesAsync().ConfigureAwait(false);
 
-                            if (totalCount == 0 && isStarboardMessage)
-                            {
-                                var chan = message.Channel as ITextChannel;
+				await message.DeleteAsync().ConfigureAwait(false);
 
-                                var txtChan = await chan.Guild.GetTextChannelAsync(gld.StarboardChannel).ConfigureAwait(false);
+				return false;
+			}
+			else
+			{
+				string reactionRange = dbGuild.StarEmote;
 
-                                IMessage msg = await txtChan.GetMessageAsync(starboardVote.StarboardMessageId).ConfigureAwait(false);
+				if (Reactions >= 10)
+				{
+					reactionRange = dbGuild.StarRange1;
+				}
+				if (Reactions >= 20)
+				{
+					reactionRange = dbGuild.StarRange2;
+				}
+				if (Reactions >= 30)
+				{
+					reactionRange = dbGuild.StarRange3;
+				}
 
-                                await msg.DeleteAsync().ConfigureAwait(false);
-                            }
-                            else
-                            {
-                                if (starboardVote.StarboardMessageId != 0)
-                                {
-                                    await UpdateMessageAsync(guild, gld, starboardVote.StarboardMessageId, totalCount).ConfigureAwait(false);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Critical(Key, ex.Message, null, ex);
-            }
-        }
-    }
+				var splitSection = message.Content.Split(" | ");
+
+				await message.ModifyAsync(x =>
+				{
+					x.Content = $"{reactionRange} {Reactions} | {splitSection[1]}";
+					if (x.Embed.IsSpecified)
+					{
+						x.Embed = x.Embed.GetValueOrDefault()
+										.ToEmbedBuilder()
+										.WithColor(StarColour(Reactions, 30))
+										.Build();
+					}
+				}).ConfigureAwait(false);
+
+				return true;
+			}
+		}
+		#endregion Messages
+	}
 }

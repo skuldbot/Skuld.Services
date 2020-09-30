@@ -7,24 +7,25 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akitaux.Twitch.Helix" Version="0.1.0-build-00012" />
     <PackageReference Include="Discord.Net.Commands" Version="2.3.0-dev-20200525.6" />
     <PackageReference Include="Discord.Net.Core" Version="2.3.0-dev-20200525.6" />
     <PackageReference Include="Discord.Net.WebSocket" Version="2.3.0-dev-20200525.6" />
-    <PackageReference Include="DogStatsD-CSharp-Client" Version="5.0.2" />
+    <PackageReference Include="DogStatsD-CSharp-Client" Version="5.1.0" />
     <PackageReference Include="EmojiOne" Version="4.0.1" />
     <PackageReference Include="Fleck" Version="1.1.0" />
     <PackageReference Include="IqdbApi" Version="1.4.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.3.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.Scripting" Version="3.7.0-1.final" />
-    <PackageReference Include="Microsoft.CodeQuality.Analyzers" Version="3.0.0">
+    <PackageReference Include="Microsoft.CodeAnalysis.Scripting" Version="3.7.0" />
+    <PackageReference Include="Microsoft.CodeQuality.Analyzers" Version="3.3.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Octokit" Version="0.48.0" />
+    <PackageReference Include="TweetinviAPI" Version="4.0.3" />
+    <PackageReference Include="TwitchLib" Version="3.1.1" />
   </ItemGroup>
 
   <ItemGroup>

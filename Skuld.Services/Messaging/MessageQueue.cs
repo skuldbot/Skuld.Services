@@ -31,7 +31,7 @@ namespace Skuld.Services.Messaging
                                 {
                                     if(msg.Channel is IGuildChannel msgChan)
                                     {
-                                        if(BotService.DiscordClient.GetGuild(msgChan.GuildId) != null)
+                                        if(SkuldApp.DiscordClient.GetGuild(msgChan.GuildId) != null)
                                         {
                                             mssgQueue.Add(msg);
                                         }

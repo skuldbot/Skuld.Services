@@ -44,7 +44,7 @@ namespace Skuld.Services.Messaging.Extensions
                         var msg = await MessageSender.ReplyAsync(context.Channel, content, embed, filestream, filename).ConfigureAwait(false);
 
                         if (filestream != null)
-                            await filestream.DisposeAsync().ConfigureAwait(false);
+                            filestream.Dispose();
 
                         return msg;
                     }

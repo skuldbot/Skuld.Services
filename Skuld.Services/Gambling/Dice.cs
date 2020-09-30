@@ -4,88 +4,94 @@ using System.Collections.Generic;
 
 namespace Skuld.Services.Gambling
 {
-    public class Dice
-    {
-        private readonly List<Die> dies;
-        public int DieAmount { get { return dies.Count; } }
+	public class Dice
+	{
+		private readonly List<Die> dies;
+		public int DieAmount { get { return dies.Count; } }
 
-        public Dice()
-        {
-            dies = new List<Die>();
-        }
+		public Dice()
+		{
+			dies = new List<Die>();
+		}
 
-        public Dice(int amount) : this()
-        {
-            for (int x = 0; x < amount; x++)
-            {
-                dies.Add(new Die());
-            }
-        }
+		public Dice(int amount) : this()
+		{
+			for (int x = 0; x < amount; x++)
+			{
+				dies.Add(new Die());
+			}
+		}
 
-        public Dice(int amount, ulong maxValue) : this()
-        {
-            for (int x = 0; x < amount; x++)
-            {
-                dies.Add(new Die(maxValue));
-            }
-        }
+		public Dice(int amount, ulong maxValue) : this()
+		{
+			for (int x = 0; x < amount; x++)
+			{
+				dies.Add(new Die(maxValue));
+			}
+		}
 
-        public Dice SetDice(int amount)
-        {
-            dies.Clear();
+		public Dice SetDice(int amount)
+		{
+			dies.Clear();
 
-            for (int x = 0; x < amount; x++)
-            {
-                dies.Add(new Die());
-            }
+			for (int x = 0; x < amount; x++)
+			{
+				dies.Add(new Die());
+			}
 
-            return this;
-        }
+			return this;
+		}
 
-        public Dice SetDieValue(int index, ushort amount)
-        {
-            if(index < DieAmount)
-            {
-                dies[index].SetFace(amount);
-            }
-            else
-            {
-                throw new IndexOutOfRangeException("Index is over or equal to length of array");
-            }
+		public Dice SetDieValue(int index, ushort amount)
+		{
+			if (index < DieAmount)
+			{
+				dies[index].SetFace(amount);
+			}
+			else
+			{
+				throw new IndexOutOfRangeException("Index is over or equal to length of array");
+			}
 
-            return this;
-        }
+			return this;
+		}
 
-        public ulong GetSumOfFaces()
-        {
-            ulong amount = 0;
+		public ulong GetSumOfFaces()
+		{
+			ulong amount = 0;
 
-            foreach (var die in dies)
-            {
-                amount = amount.Add(die.Face);
-            }
+			foreach (var die in dies)
+			{
+				amount = amount.Add(die.Face);
+			}
 
-            return amount;
-        }
+			return amount;
+		}
 
-        public ushort[] GetFaces()
-        {
-            List<ushort> Face = new List<ushort>();
-            foreach (var die in dies)
-            {
-                Face.Add(die.Face);
-            }
-            return Face.ToArray();
-        }
+		public ushort[] GetFaces()
+		{
+			List<ushort> Face = new List<ushort>();
+			foreach (var die in dies)
+			{
+				Face.Add(die.Face);
+			}
+			return Face.ToArray();
+		}
 
-        public Die[] GetDies()
-            => dies.ToArray();
+		public Die[] GetDies()
+			=> dies.ToArray();
 
-        public Die[] Roll()
-        {
-            dies.ForEach(x => x.Roll());
+		public Die[] Roll()
+		{
+			dies.ForEach(x => x.Roll());
 
-            return dies.ToArray();
-        }
-    }
+			return dies.ToArray();
+		}
+
+		public Die this[int key]
+		{
+			get => dies[key];
+			set => dies[key] = value;
+		}
+	}
 }
