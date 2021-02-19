@@ -14,11 +14,17 @@ namespace Skuld.Services.Guilds.Starboard
 	public static class StarboardService
 	{
 		const string Key = "StarboardService";
-		static readonly Color StarboardNewEntry = new Color(255, 85, 0);
-		static readonly Color StarboardColor = new Color(255, 255, 0);
+		private static readonly Color StarboardNewEntry = new(255, 85, 0);
+		private static readonly Color StarboardColor = new(255, 255, 0);
 
 		static Color StarColour(double current, ulong max)
-			=> StarboardNewEntry.Lerp(StarboardColor, current.Remap(0, max, 0, 1));
+		{
+			double value = (current - 0) / (max - 0);
+
+			value = Math.Clamp(value, 0, 1);
+
+			return StarboardNewEntry.Lerp(StarboardColor, value);
+		}
 
 		#region Events
 		public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
@@ -79,7 +85,7 @@ namespace Skuld.Services.Guilds.Starboard
 
 												await Database.SaveChangesAsync().ConfigureAwait(false);
 
-												await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.MessageId == message.Id)).ConfigureAwait(false);
+												await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.MessageId == message.Id), message).ConfigureAwait(false);
 											}
 										}
 										else if (Database.StarboardVotes.Any(x => x.MessageId == message.Id && x.StarboardMessageId == 0))
@@ -138,7 +144,7 @@ namespace Skuld.Services.Guilds.Starboard
 
 												await Database.SaveChangesAsync().ConfigureAwait(false);
 
-												await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id)).ConfigureAwait(false);
+												await UpdateMessageAsync(guild, gld, starboardedMessage.StarboardMessageId, Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id), message).ConfigureAwait(false);
 											}
 										}
 									}
@@ -182,7 +188,12 @@ namespace Skuld.Services.Guilds.Starboard
 					using var Database = new SkuldDbContextFactory().CreateDbContext();
 					var gld = Database.Guilds.Find(guild.Id);
 
-					StarboardVote starboardVote = Database.StarboardVotes.Find(message.Id, reactorId);
+					StarboardVote starboardVote = Database.StarboardVotes.FirstOrDefault(x => x.MessageId == message.Id && x.VoterId == reactorId);
+
+					if (starboardVote == null)
+					{
+						starboardVote = Database.StarboardVotes.FirstOrDefault(x => x.StarboardMessageId == message.Id && x.VoterId == reactorId);
+					}
 
 					bool didChange = false;
 
@@ -234,7 +245,7 @@ namespace Skuld.Services.Guilds.Starboard
 							{
 								if (starboardVote.StarboardMessageId != 0)
 								{
-									await UpdateMessageAsync(guild, gld, starboardVote.StarboardMessageId, totalCount).ConfigureAwait(false);
+									await UpdateMessageAsync(guild, gld, starboardVote.StarboardMessageId, totalCount, message).ConfigureAwait(false);
 								}
 							}
 						}
@@ -364,14 +375,18 @@ namespace Skuld.Services.Guilds.Starboard
 			return msg;
 		}
 
-		static async Task<bool> UpdateMessageAsync(IGuild guild, Guild dbGuild, ulong starboardedMessage, int Reactions)
+		static async Task<bool> UpdateMessageAsync(IGuild guild, Guild dbGuild, ulong starboardedMessage, int Reactions, IMessage fallbackMessage)
 		{
 			var starboard = await guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
 
-			if (!(await starboard.GetMessageAsync(starboardedMessage).ConfigureAwait(false) is IUserMessage message))
+			var msg = await starboard.GetMessageAsync(starboardedMessage).ConfigureAwait(false);
+
+			if (msg == null && fallbackMessage is not IUserMessage)
 			{
-				return false;
+				msg = await SendMessageAsync(fallbackMessage, guild, dbGuild, Reactions).ConfigureAwait(false);
 			}
+
+			if (msg is not IUserMessage) return false;
 
 			if (Reactions < dbGuild.StarRemoveAmount)
 			{
@@ -384,7 +399,7 @@ namespace Skuld.Services.Guilds.Starboard
 
 				await database.SaveChangesAsync().ConfigureAwait(false);
 
-				await message.DeleteAsync().ConfigureAwait(false);
+				await msg.DeleteAsync().ConfigureAwait(false);
 
 				return false;
 			}
@@ -405,9 +420,9 @@ namespace Skuld.Services.Guilds.Starboard
 					reactionRange = dbGuild.StarRange3;
 				}
 
-				var splitSection = message.Content.Split(" | ");
+				var splitSection = msg.Content.Split(" | ");
 
-				await message.ModifyAsync(x =>
+				await (msg as IUserMessage).ModifyAsync(x =>
 				{
 					x.Content = $"{reactionRange} {Reactions} | {splitSection[1]}";
 					if (x.Embed.IsSpecified)

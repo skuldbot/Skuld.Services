@@ -67,7 +67,7 @@ namespace Skuld.Services.VoiceExperience
 			.ToList();
 
 			{ // Remove All Events that exist for this user and channel
-				ConcurrentBag<VoiceEvent> events = new ConcurrentBag<VoiceEvent>();
+				ConcurrentBag<VoiceEvent> events = new();
 
 				foreach (var Target in Targets)
 				{
@@ -163,7 +163,7 @@ namespace Skuld.Services.VoiceExperience
 
 			SocketGuildUser guildUser = guild.GetUser(user.Id);
 
-			VoiceStateTrackable state = new VoiceStateTrackable
+			VoiceStateTrackable state = new()
 			{
 				User = guildUser,
 				Channel = channel,

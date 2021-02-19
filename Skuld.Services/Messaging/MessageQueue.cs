@@ -3,16 +3,16 @@ using System.Collections.Concurrent;
 
 namespace Skuld.Services.Messaging
 {
-    public static class MessageQueue
-    {
-        private const string Key = "MsgQueue";
+	public static class MessageQueue
+	{
+		private const string Key = "MsgQueue";
 
-        private static ConcurrentQueue<SkuldMessage> messageQueue = new ConcurrentQueue<SkuldMessage>();
+		private static readonly ConcurrentQueue<SkuldMessage> messageQueue = new();
 
-        private const int messageDelay = 50;
+		private const int messageDelay = 50;
 
-        public static bool CheckForEmptyGuilds = false;
-        /*
+		public static bool CheckForEmptyGuilds = false;
+		/*
         private static async Task ExecuteAsync()
         {
             while (true)
@@ -141,5 +141,5 @@ namespace Skuld.Services.Messaging
         public static void Run()
             => Task.Run(async () => await ExecuteAsync().ConfigureAwait(false));
             */
-    }
+	}
 }

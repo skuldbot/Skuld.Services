@@ -15,6 +15,8 @@ namespace Skuld.Services.WebSocket
 {
 	public class WebSocketService : IDisposable
 	{
+		private bool isDisposed;
+
 		public DiscordShardedClient Client;
 		private readonly WebSocketServer _server;
 
@@ -38,198 +40,228 @@ namespace Skuld.Services.WebSocket
 			if (string.IsNullOrEmpty(message)) return;
 			if (message.StartsWith("user:", StringComparison.InvariantCultureIgnoreCase))
 			{
-				ulong.TryParse(message.Replace("user:", ""), out var userid);
-
-				var usr = Client.GetUser(userid);
-				if (usr != null)
+				if (ulong.TryParse(message.Replace("user:", ""), out var userid))
 				{
-					var wsuser = new WebSocketUser
+					var usr = Client.GetUser(userid);
+					if (usr != null)
 					{
-						Username = usr.Username,
-						Id = usr.Id,
-						Discriminator = usr.Discriminator,
-						UserIconUrl = usr.GetAvatarUrl() ?? usr.GetDefaultAvatarUrl(),
-						Status = usr.Status.ToString()
-					};
+						var wsuser = new WebSocketUser
+						{
+							Username = usr.Username,
+							Id = usr.Id,
+							Discriminator = usr.Discriminator,
+							UserIconUrl = usr.GetAvatarUrl() ?? usr.GetDefaultAvatarUrl(),
+							Status = usr.Status.ToString()
+						};
 
-					var res = EventResult<WebSocketUser>.FromSuccess(wsuser);
+						var res = EventResult<WebSocketUser>.FromSuccess(wsuser);
 
-					var cnv = JsonConvert.SerializeObject(res);
+						var cnv = JsonConvert.SerializeObject(res);
 
-					await conn.Send(cnv).ConfigureAwait(false);
+						await conn.Send(cnv).ConfigureAwait(false);
+					}
+					else
+					{
+						await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("User not found"))).ConfigureAwait(false);
+					}
 				}
 				else
 				{
-					await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketUser>.FromFailure("User not found"))).ConfigureAwait(false);
+					await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Invalid input, check and try again"))).ConfigureAwait(false);
 				}
 			}
 			if (message.StartsWith("guild:", StringComparison.InvariantCultureIgnoreCase))
 			{
-				ulong.TryParse(message.Replace("guild:", ""), out var guildid);
-
-				var gld = Client.GetGuild(guildid);
-				if (gld != null)
+				if (ulong.TryParse(message.Replace("guild:", ""), out var guildid))
 				{
-					var wsgld = new WebSocketGuild
+					var gld = Client.GetGuild(guildid);
+					if (gld != null)
 					{
-						Name = gld.Name,
-						GuildIconUrl = gld.IconUrl,
-						Id = gld.Id
-					};
+						var wsgld = new WebSocketGuild
+						{
+							Name = gld.Name,
+							GuildIconUrl = gld.IconUrl,
+							Id = gld.Id
+						};
 
-					var res = EventResult<WebSocketGuild>.FromSuccess(wsgld);
+						var res = EventResult<WebSocketGuild>.FromSuccess(wsgld);
 
-					var cnv = JsonConvert.SerializeObject(res);
+						var cnv = JsonConvert.SerializeObject(res);
 
-					await conn.Send(cnv).ConfigureAwait(false);
+						await conn.Send(cnv).ConfigureAwait(false);
+					}
+					else
+					{
+						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketGuild>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					}
 				}
 				else
 				{
-					await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketGuild>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Invalid input, check and try again"))).ConfigureAwait(false);
 				}
 			}
 			if (message.StartsWith("roles:", StringComparison.InvariantCultureIgnoreCase))
 			{
-				ulong.TryParse(message.Replace("roles:", ""), out var guildid);
-
-				var gld = Client.GetGuild(guildid);
-				if (gld != null)
+				if (ulong.TryParse(message.Replace("roles:", ""), out var guildid))
 				{
-					List<WebSocketSnowFlake> snowflakes = new List<WebSocketSnowFlake>();
-
-					foreach (var role in gld.Roles)
+					var gld = Client.GetGuild(guildid);
+					if (gld != null)
 					{
-						snowflakes.Add(new WebSocketSnowFlake
+						List<WebSocketSnowFlake> snowflakes = new();
+
+						foreach (var role in gld.Roles)
 						{
-							Name = role.Name,
-							ID = role.Id
-						});
+							snowflakes.Add(new WebSocketSnowFlake
+							{
+								Name = role.Name,
+								ID = role.Id
+							});
+						}
+
+						var wsgld = new WebSocketSnowFlakes
+						{
+							Type = "roles",
+							GuildID = guildid,
+							Data = snowflakes
+						};
+
+						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+
+						var cnv = JsonConvert.SerializeObject(res);
+
+						await conn.Send(cnv).ConfigureAwait(false);
 					}
-
-					var wsgld = new WebSocketSnowFlakes
+					else
 					{
-						Type = "roles",
-						GuildID = guildid,
-						Data = snowflakes
-					};
-
-					var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
-
-					var cnv = JsonConvert.SerializeObject(res);
-
-					await conn.Send(cnv).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					}
 				}
 				else
 				{
-					await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Invalid input, check and try again"))).ConfigureAwait(false);
 				}
 			}
 			if (message.StartsWith("tchannels:", StringComparison.InvariantCultureIgnoreCase))
 			{
-				ulong.TryParse(message.Replace("tchannels:", ""), out var guildid);
-
-				var gld = Client.GetGuild(guildid);
-				if (gld != null)
+				if (ulong.TryParse(message.Replace("tchannels:", ""), out var guildid))
 				{
-					List<WebSocketSnowFlake> snowflakes = new List<WebSocketSnowFlake>();
-
-					foreach (var role in gld.TextChannels)
+					var gld = Client.GetGuild(guildid);
+					if (gld != null)
 					{
-						snowflakes.Add(new WebSocketSnowFlake
+						List<WebSocketSnowFlake> snowflakes = new();
+
+						foreach (var role in gld.TextChannels)
 						{
-							Name = role.Name,
-							ID = role.Id
-						});
+							snowflakes.Add(new WebSocketSnowFlake
+							{
+								Name = role.Name,
+								ID = role.Id
+							});
+						}
+
+						var wsgld = new WebSocketSnowFlakes
+						{
+							Type = "tchannels",
+							GuildID = guildid,
+							Data = snowflakes
+						};
+
+						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+
+						var cnv = JsonConvert.SerializeObject(res);
+
+						await conn.Send(cnv).ConfigureAwait(false);
 					}
-
-					var wsgld = new WebSocketSnowFlakes
+					else
 					{
-						Type = "tchannels",
-						GuildID = guildid,
-						Data = snowflakes
-					};
-
-					var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
-
-					var cnv = JsonConvert.SerializeObject(res);
-
-					await conn.Send(cnv).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					}
 				}
 				else
 				{
-					await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Invalid input, check and try again"))).ConfigureAwait(false);
 				}
 			}
 			if (message.StartsWith("cchannels:", StringComparison.InvariantCultureIgnoreCase))
 			{
-				ulong.TryParse(message.Replace("cchannels:", ""), out var guildid);
-
-				var gld = Client.GetGuild(guildid);
-				if (gld != null)
+				if (ulong.TryParse(message.Replace("cchannels:", ""), out var guildid))
 				{
-					List<WebSocketSnowFlake> snowflakes = new List<WebSocketSnowFlake>();
-
-					foreach (var role in gld.CategoryChannels)
+					var gld = Client.GetGuild(guildid);
+					if (gld != null)
 					{
-						snowflakes.Add(new WebSocketSnowFlake
+						List<WebSocketSnowFlake> snowflakes = new();
+
+						foreach (var role in gld.CategoryChannels)
 						{
-							Name = role.Name,
-							ID = role.Id
-						});
+							snowflakes.Add(new WebSocketSnowFlake
+							{
+								Name = role.Name,
+								ID = role.Id
+							});
+						}
+
+						var wsgld = new WebSocketSnowFlakes
+						{
+							Type = "cchannels",
+							GuildID = guildid,
+							Data = snowflakes
+						};
+
+						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+
+						var cnv = JsonConvert.SerializeObject(res);
+
+						await conn.Send(cnv).ConfigureAwait(false);
 					}
-
-					var wsgld = new WebSocketSnowFlakes
+					else
 					{
-						Type = "cchannels",
-						GuildID = guildid,
-						Data = snowflakes
-					};
-
-					var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
-
-					var cnv = JsonConvert.SerializeObject(res);
-
-					await conn.Send(cnv).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					}
 				}
 				else
 				{
-					await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Invalid input, check and try again"))).ConfigureAwait(false);
 				}
 			}
 			if (message.StartsWith("vchannels:", StringComparison.InvariantCultureIgnoreCase))
 			{
-				ulong.TryParse(message.Replace("vchannels:", "", StringComparison.InvariantCultureIgnoreCase), System.Globalization.NumberStyles.Integer, null, out var guildid);
-
-				var gld = Client.GetGuild(guildid);
-				if (gld != null)
+				if (ulong.TryParse(message.Replace("vchannels:", "", StringComparison.InvariantCultureIgnoreCase), System.Globalization.NumberStyles.Integer, null, out var guildid))
 				{
-					List<WebSocketSnowFlake> snowflakes = new List<WebSocketSnowFlake>();
-
-					foreach (var role in gld.VoiceChannels)
+					var gld = Client.GetGuild(guildid);
+					if (gld != null)
 					{
-						snowflakes.Add(new WebSocketSnowFlake
+						List<WebSocketSnowFlake> snowflakes = new();
+
+						foreach (var role in gld.VoiceChannels)
 						{
-							Name = role.Name,
-							ID = role.Id
-						});
+							snowflakes.Add(new WebSocketSnowFlake
+							{
+								Name = role.Name,
+								ID = role.Id
+							});
+						}
+
+						var wsgld = new WebSocketSnowFlakes
+						{
+							Type = "vchannels",
+							GuildID = guildid,
+							Data = snowflakes
+						};
+
+						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+
+						var cnv = JsonConvert.SerializeObject(res);
+
+						await conn.Send(cnv).ConfigureAwait(false);
 					}
-
-					var wsgld = new WebSocketSnowFlakes
+					else
 					{
-						Type = "vchannels",
-						GuildID = guildid,
-						Data = snowflakes
-					};
-
-					var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
-
-					var cnv = JsonConvert.SerializeObject(res);
-
-					await conn.Send(cnv).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					}
 				}
 				else
 				{
-					await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+					await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Invalid input, check and try again"))).ConfigureAwait(false);
 				}
 			}
 			if (message.ToLowerInvariant() == "stats" || message.ToLowerInvariant() == "status")
@@ -251,10 +283,28 @@ namespace Skuld.Services.WebSocket
 			}
 		}
 
-		public void Dispose()
+		public virtual void Dispose()
 		{
-			_server.Dispose();
+			Dispose(true);
 			GC.SuppressFinalize(this);
+		}
+
+		protected virtual void Dispose(bool disposing)
+		{
+			if (isDisposed) return;
+
+			if (disposing)
+			{
+				_server.Dispose();
+			}
+
+			isDisposed = true;
+		}
+
+		~WebSocketService()
+		{
+			// Finalizer calls Dispose(false)
+			Dispose(false);
 		}
 	}
 }

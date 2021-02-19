@@ -13,6 +13,7 @@ using StatsdClient;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -255,7 +256,7 @@ namespace Skuld.Services.Extensions
 				.WithThumbnailUrl(user.GetAvatarUrl() ?? user.GetDefaultAvatarUrl())
 				.WithColor(guildUser?.GetHighestRoleColor(guildUser?.Guild) ?? EmbedExtensions.RandomEmbedColor());
 
-			embed.AddInlineField(":id: User ID", user.Id.ToString() ?? "Unknown");
+			embed.AddInlineField(":id: User ID", Convert.ToString(user.Id, CultureInfo.InvariantCulture) ?? "Unknown");
 			embed.AddInlineField(":vertical_traffic_light: Status", status ?? "Unknown");
 
 			if (user.Activity != null)
@@ -267,7 +268,7 @@ namespace Skuld.Services.Extensions
 
 			embed.AddInlineField("👀 Mutual Servers", $"{(user as SocketUser).MutualGuilds.Count}");
 
-			StringBuilder clientString = new StringBuilder();
+			StringBuilder clientString = new();
 			foreach (var client in user.ActiveClients)
 			{
 				clientString = clientString.Append(client.ToEmoji());

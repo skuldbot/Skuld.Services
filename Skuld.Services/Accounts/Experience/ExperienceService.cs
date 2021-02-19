@@ -20,7 +20,7 @@ namespace Skuld.Services.Accounts.Experience
 			ICommandContext context
 		)
 		{
-			if (context.User.IsBot || context.User.IsWebhook) return;
+			if (context.User.IsBot || context.User.IsWebhook || context.Guild == null) return;
 
 			try
 			{
@@ -42,59 +42,69 @@ namespace Skuld.Services.Accounts.Experience
 
 		static string GetMessage(IUser user, IGuild guild, Guild dbGuild, IUserMessage message, ulong level, IEnumerable<LevelRewards> roles, bool showFromVoice = false)
 		{
-			var msg = dbGuild.LevelUpMessage;
+			if (guild == null || dbGuild == null || user == null) return null;
 
-			string rles = "";
-
-			if (guild != null)
+			try
 			{
-				if (roles.Any())
+				var msg = dbGuild.LevelUpMessage;
+
+				string rles = "";
+
+				if (guild != null)
 				{
-					if (roles.Count() <= 10)
+					if (roles != null && roles.Any())
 					{
-						rles = string.Join(", ", roles.Select(x => guild.GetRole(x.RoleId)?.Name).ToArray());
+						if (roles.Count() <= 10)
+						{
+							rles = string.Join(", ", roles.Select(x => guild.GetRole(x.RoleId)?.Name).ToArray());
+						}
+						else
+						{
+							rles = $"{roles.Count().ToFormattedString()} roles";
+						}
 					}
 					else
 					{
-						rles = $"{roles.Count().ToFormattedString()} roles";
+						rles = "None at this role";
+					}
+				}
+
+				if (msg != null && user != null && guild != null)
+				{
+					msg = msg.ReplaceGuildEventMessage(user, guild as SocketGuild)
+						.ReplaceFirst("-l", level.ToFormattedString())
+						.ReplaceFirst("-r", rles);
+
+					if (msg.Contains("-jl"))
+					{
+						try
+						{
+							msg = msg.ReplaceFirst("-jl", message.GetJumpUrl());
+						}
+						catch (Exception ex)
+						{
+							msg = msg.ReplaceFirst("-jl", "");
+							Log.Error("ExperienceService", ex.Message, null, ex);
+						}
 					}
 				}
 				else
 				{
-					rles = "None at this role";
+					msg = $"Congratulations {user.Mention}!! You're now level **{level}**! You currently have access to: `{rles}`";
 				}
-			}
 
-			if (msg != null && user != null && guild != null)
-			{
-				msg = msg.ReplaceGuildEventMessage(user, guild as SocketGuild)
-					.ReplaceFirst("-l", level.ToFormattedString())
-					.ReplaceFirst("-r", rles);
-
-				if (msg.Contains("-jl"))
+				if (showFromVoice)
 				{
-					try
-					{
-						msg = msg.ReplaceFirst("-jl", message.GetJumpUrl());
-					}
-					catch (Exception ex)
-					{
-						msg = msg.ReplaceFirst("-jl", "");
-						Log.Error("ExperienceService", ex.Message, null, ex);
-					}
+					msg += $"\n**FROM VOICE**";
 				}
-			}
-			else
-			{
-				msg = $"Congratulations {user.Mention}!! You're now level **{level}**! You currently have access to: `{rles}`";
-			}
 
-			if (showFromVoice)
-			{
-				msg += $"\n**FROM VOICE**";
+				return msg;
 			}
-
-			return msg;
+			catch (Exception ex)
+			{
+				Log.Error("ExperienceService", ex.Message, null, ex);
+				return null;
+			}
 		}
 
 		static IEnumerable<LevelRewards> GetUnlockedRoles(ulong guildId, bool automatic = false)
@@ -104,9 +114,11 @@ namespace Skuld.Services.Accounts.Experience
 			return Database.LevelRewards.ToList().Where(x => x.GuildId == guildId && x.Automatic == automatic);
 		}
 
-		public static Action<IGuildUser, IGuild, Guild, ICommandContext, ulong> DefaultAction = new Action<IGuildUser, IGuild, Guild, ICommandContext, ulong>(
+		public static Action<IGuildUser, IGuild, Guild, ICommandContext, ulong> DefaultAction = new(
 			async (user, guild, dbGuild, context, level) =>
 			{
+				if (guild == null || dbGuild == null || context == null || user == null) return;
+
 				using var Database = new SkuldDbContextFactory().CreateDbContext();
 
 				var autoRoles = GetUnlockedRoles(guild.Id, true);
@@ -114,14 +126,14 @@ namespace Skuld.Services.Accounts.Experience
 				var bot = await guild.GetCurrentUserAsync().ConfigureAwait(false);
 				var highestRole = bot.GetHighestRole();
 
-				var GuildConfig = Database.Features.ToList().FirstOrDefault(x => x.Id == guild.Id);
+				var GuildConfig = Database.Features.Find(guild.Id);
 
-				List<LevelRewards> roles = new List<LevelRewards>(autoRoles);
+				List<LevelRewards> roles = new(autoRoles);
 				roles.AddRange(nonautoRoles);
 
 				var msg = GetMessage(user, guild, dbGuild, context.Message, level, roles);
 
-				if (autoRoles.Any(x => x.LevelRequired == level))
+				if (autoRoles.Any() && autoRoles.Any(x => x.LevelRequired == level))
 				{
 					var usr = await guild.GetUserAsync(user.Id).ConfigureAwait(false);
 
@@ -153,6 +165,8 @@ namespace Skuld.Services.Accounts.Experience
 
 		static async Task HandleMessageSend(IGuildUser user, IGuild guild, Guild dbGuild, ICommandContext context, string msg)
 		{
+			if (guild == null || dbGuild == null || context == null || user == null) return;
+
 			switch (dbGuild.LevelNotification)
 			{
 				case LevelNotification.Channel:
@@ -166,7 +180,7 @@ namespace Skuld.Services.Accounts.Experience
 							if (channel != null)
 							{
 								await
-									MessageSender.ReplyAsync(channel, msg)
+									MessageSender.SendMessageTo(channel, msg)
 								.ConfigureAwait(false);
 							}
 							else
@@ -176,7 +190,7 @@ namespace Skuld.Services.Accounts.Experience
 								.ConfigureAwait(false);
 
 								await
-									MessageSender.ReplyAsync(owner,
+									MessageSender.SendMessageToUser(owner,
 									$"Channel with Id **{dbGuild.LevelUpChannel}** no longer exists, please update using `{dbGuild.Prefix}guild channel join #newChannel`"
 								)
 								.ConfigureAwait(false);
@@ -185,7 +199,7 @@ namespace Skuld.Services.Accounts.Experience
 						else
 						{
 							await
-								MessageSender.ReplyAsync(context.Message.Channel, msg)
+								context.Message.ReplyToAsync(msg)
 							.ConfigureAwait(false);
 						}
 					}
@@ -196,7 +210,7 @@ namespace Skuld.Services.Accounts.Experience
 						try
 						{
 							await
-								MessageSender.ReplyAsync(user, $"**{guild.Name}:** " + msg)
+								MessageSender.SendMessageToUser(user, $"**{guild.Name}:** " + msg)
 							.ConfigureAwait(false);
 						}
 						catch (Exception ex)
@@ -218,9 +232,11 @@ namespace Skuld.Services.Accounts.Experience
 			}
 		}
 
-		public static Action<IGuildUser, IGuild, Guild, ICommandContext, ulong> VoiceAction = new Action<IGuildUser, IGuild, Guild, ICommandContext, ulong>(
+		public static Action<IGuildUser, IGuild, Guild, ICommandContext, ulong> VoiceAction = new(
 			async (user, guild, dbGuild, context, level) =>
 			{
+				if (guild == null || dbGuild == null || context == null || user == null) return;
+
 				using var Database = new SkuldDbContextFactory().CreateDbContext();
 
 				var autoRoles = GetUnlockedRoles(guild.Id, true);
@@ -230,7 +246,7 @@ namespace Skuld.Services.Accounts.Experience
 
 				var GuildConfig = Database.Features.ToList().FirstOrDefault(x => x.Id == guild.Id);
 
-				List<LevelRewards> roles = new List<LevelRewards>(autoRoles);
+				List<LevelRewards> roles = new(autoRoles);
 				roles.AddRange(nonautoRoles);
 
 				var msg = GetMessage(user, guild, dbGuild, null, level, roles, true);

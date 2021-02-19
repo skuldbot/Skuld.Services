@@ -1,5 +1,4 @@
-﻿using Skuld.Core.Extensions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace Skuld.Services.Gambling
@@ -58,24 +57,25 @@ namespace Skuld.Services.Gambling
 
 		public ulong GetSumOfFaces()
 		{
-			ulong amount = 0;
-
-			foreach (var die in dies)
+			ulong sum = 0;
+			int i;
+			for (i = 0; i < dies.Count; i++)
 			{
-				amount = amount.Add(die.Face);
+				sum += dies[i].Face;
 			}
-
-			return amount;
+			return sum;
 		}
 
 		public ushort[] GetFaces()
 		{
-			List<ushort> Face = new List<ushort>();
-			foreach (var die in dies)
+			ushort[] faces = Array.Empty<ushort>();
+
+			for (int f = 0; f < dies.Count; f++)
 			{
-				Face.Add(die.Face);
+				faces[f] = dies[f].Face;
 			}
-			return Face.ToArray();
+
+			return faces;
 		}
 
 		public Die[] GetDies()

@@ -17,7 +17,7 @@ namespace Skuld.Services.Twitter
 	public static class TwitterListener
 	{
 		static DiscordShardedClient DiscordClient;
-		static readonly List<IFilteredStream> listeningStreams = new List<IFilteredStream>();
+		static readonly List<IFilteredStream> listeningStreams = new();
 
 		public static void Configure(DiscordShardedClient client)
 		{
@@ -29,7 +29,7 @@ namespace Skuld.Services.Twitter
 			foreach (var stream in listeningStreams)
 			{
 				stream.StopStream();
-				stream.FollowingUserIds.ForEach(z => stream.RemoveFollow(z.Key));
+				stream.FollowingUserIds.ForEach(z => stream.RemoveFollow(z.Key.Value));
 			}
 
 			listeningStreams.Clear();
@@ -71,7 +71,7 @@ namespace Skuld.Services.Twitter
 
 						if (!(string.IsNullOrEmpty(gld.NewTweetMessage) || string.IsNullOrWhiteSpace(gld.NewTweetMessage)))
 						{
-							msg = gld.TwitchLiveMessage.ReplaceSocialEventMessage(args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName, args.Tweet.Url);
+							msg = gld.TwitchLiveMessage.ReplaceSocialEventMessage(args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName, new(args.Tweet.Url));
 						}
 
 						await DiscordClient.GetGuild(group.ToList()[0].GuildId).GetTextChannel(group.Key).SendMessageAsync(
