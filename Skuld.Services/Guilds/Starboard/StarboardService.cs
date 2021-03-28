@@ -29,6 +29,8 @@ namespace Skuld.Services.Guilds.Starboard
 		#region Events
 		public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
 		{
+			if (message == null) return;
+			if (channel == null) return;
 			try
 			{
 				if (channel is ITextChannel guildChannel)
@@ -179,6 +181,7 @@ namespace Skuld.Services.Guilds.Starboard
 
 		public static async Task ExecuteRemovalAsync(IMessage message, ulong reactorId)
 		{
+			if (message == null) return;
 			try
 			{
 				if (message.Channel is IGuildChannel guildChannel)

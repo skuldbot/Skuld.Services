@@ -2,6 +2,7 @@
 using Skuld.Core.Extensions;
 using Skuld.Core.Utilities;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -11,7 +12,14 @@ namespace Skuld.Services.Messaging
 	{
 		private const string Key = "MsgDisp";
 
-		public static async Task<IUserMessage> ReplyToAsync(this IUserMessage replyMessage, string message, Embed embed = null, Stream file = null, string fileName = "filename.file", int timeout = -1)
+		public static async Task<IUserMessage> ReplyToAsync(this IUserMessage replyMessage,
+			string message,
+			Embed embed = null,
+			string[] addReactions = null,
+			Stream file = null,
+			string fileName = "filename.file",
+			int timeout = -1
+		)
 		{
 			try
 			{
@@ -29,35 +37,53 @@ namespace Skuld.Services.Messaging
 					Log.Info(Key, $"Dispatched message to {replyMessage.Channel.Name}");
 				}
 
+				IUserMessage createdMessage;
+
 				if (file == null)
 				{
-
-					var msg =
+					createdMessage =
 						await
 							replyMessage.ReplyAsync(message, false, embed)
 						.ConfigureAwait(false);
 
 					if (timeout != -1)
 					{
-						await msg.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
+						await createdMessage.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
 					}
-
-					return msg;
 				}
 				else
 				{
-					var msg =
+					createdMessage =
 						await
 							replyMessage.Channel.SendFileAsync(file, fileName, message, false, embed, null, false, null, replyMessage.Reference)
 						.ConfigureAwait(false);
 
 					if (timeout != -1)
 					{
-						await msg.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
+						await createdMessage.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
+					}
+				}
+
+				if (createdMessage is not null)
+				{
+					List<IEmote> formattedAddReactions = new();
+
+					foreach (string reaction in addReactions)
+					{
+						if (reaction.StartsWith(":") || reaction.StartsWith("<"))
+						{
+							formattedAddReactions.Add(Emote.Parse(reaction));
+						}
+						else
+						{
+							formattedAddReactions.Add(new Emoji(EmojiOne.EmojiOne.AsciiToUnicode(reaction)));
+						}
 					}
 
-					return msg;
+					await createdMessage.AddReactionsAsync(formattedAddReactions.ToArray());
 				}
+
+				return createdMessage;
 			}
 			catch (Exception ex)
 			{
@@ -66,7 +92,14 @@ namespace Skuld.Services.Messaging
 			}
 		}
 
-		public static async Task<IUserMessage> SendMessageTo(IMessageChannel channel, string message, Embed embed = null, Stream file = null, string fileName = "filename.file", int timeout = -1)
+		public static async Task<IUserMessage> SendMessageTo(
+			IMessageChannel channel,
+			string message,
+			Embed embed = null,
+			string[] addReactions = null,
+			Stream file = null,
+			string fileName = "filename.file",
+			int timeout = -1)
 		{
 			if (channel == null) { return null; }
 
@@ -86,35 +119,53 @@ namespace Skuld.Services.Messaging
 					Log.Info(Key, $"Dispatched message to {channel.Name}");
 				}
 
+				IUserMessage createdMessage;
+
 				if (file == null)
 				{
-
-					var msg =
+					createdMessage =
 						await
 							channel.SendMessageAsync(message, false, embed)
 						.ConfigureAwait(false);
 
 					if (timeout != -1)
 					{
-						await msg.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
+						await createdMessage.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
 					}
-
-					return msg;
 				}
 				else
 				{
-					var msg =
+					createdMessage =
 						await
 							channel.SendFileAsync(file, fileName, message, false, embed)
 						.ConfigureAwait(false);
 
 					if (timeout != -1)
 					{
-						await msg.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
+						await createdMessage.DeleteAfterSecondsAsync(timeout).ConfigureAwait(false);
+					}
+				}
+
+				if (createdMessage is not null)
+				{
+					List<IEmote> formattedAddReactions = new();
+
+					foreach (string reaction in addReactions)
+					{
+						if (reaction.StartsWith(":") || reaction.StartsWith("<"))
+						{
+							formattedAddReactions.Add(Emote.Parse(reaction));
+						}
+						else
+						{
+							formattedAddReactions.Add(new Emoji(EmojiOne.EmojiOne.AsciiToUnicode(reaction)));
+						}
 					}
 
-					return msg;
+					await createdMessage.AddReactionsAsync(formattedAddReactions.ToArray());
 				}
+
+				return createdMessage;
 			}
 			catch (Exception ex)
 			{
@@ -123,7 +174,15 @@ namespace Skuld.Services.Messaging
 			}
 		}
 
-		public static async Task<IUserMessage> SendMessageToUser(IUser user, string message, Embed embed = null, Stream file = null, string fileName = "filename.file", int timeout = -1)
-			=> await SendMessageTo(await user.GetOrCreateDMChannelAsync().ConfigureAwait(false), message, embed, file, fileName, timeout).ConfigureAwait(false);
+		public static async Task<IUserMessage> SendMessageToUser(
+			IUser user,
+			string message,
+			Embed embed = null,
+			string[] addReactions = null,
+			Stream file = null,
+			string fileName = "filename.file",
+			int timeout = -1
+		)
+			=> await SendMessageTo(await user.GetOrCreateDMChannelAsync().ConfigureAwait(false), message, embed, addReactions, file, fileName, timeout).ConfigureAwait(false);
 	}
 }

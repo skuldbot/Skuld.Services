@@ -3,12 +3,14 @@ using Discord.WebSocket;
 using Skuld.Core;
 using Skuld.Core.Extensions;
 using Skuld.Models;
+using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
 using System.Threading.Tasks;
 using Tweetinvi;
 using Tweetinvi.Core.Extensions;
+using Tweetinvi.Events;
 using Tweetinvi.Models;
 using Tweetinvi.Streaming;
 
@@ -50,7 +52,7 @@ namespace Skuld.Services.Twitter
 				.GroupBy(x => x.ChannelId)
 				.ToList();
 
-			var config = database.Configurations.Find(SkuldAppContext.ConfigurationId);
+			var config = database.Configurations.AsNoTracking().FirstOrDefault(c => c.Id == SkuldAppContext.ConfigurationId);
 
 			Auth.SetUserCredentials(config.TwitterConKey, config.TwitterConSec, config.TwitterAccessTok, config.TwitterAccessSec);
 
@@ -59,32 +61,38 @@ namespace Skuld.Services.Twitter
 				foreach (var group in twitterAccounts)
 				{
 					var stream = Stream.CreateFilteredStream();
+
 					foreach (var entry in group.ToList())
 					{
 						stream.AddFollow(entry.TwitterAccId);
 					}
-					stream.MatchingTweetReceived += async (sender, args) =>
-					{
-						var gld = database.Guilds.Find(group.ToList()[0].GuildId);
 
-						string msg = $"New tweet from: {args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName}";
-
-						if (!(string.IsNullOrEmpty(gld.NewTweetMessage) || string.IsNullOrWhiteSpace(gld.NewTweetMessage)))
-						{
-							msg = gld.TwitchLiveMessage.ReplaceSocialEventMessage(args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName, new(args.Tweet.Url));
-						}
-
-						await DiscordClient.GetGuild(group.ToList()[0].GuildId).GetTextChannel(group.Key).SendMessageAsync(
-							msg,
-							embed: GetEmbedFromTweet(args.Tweet)
-						).ConfigureAwait(false);
-					};
+					stream.MatchingTweetReceived += async (sender, e) => await NewTweetFromFilterAsync(e, group);
 
 					Task.Run(() => stream.StartStreamMatchingAllConditions());
 
 					listeningStreams.Add(stream);
 				}
 			}
+		}
+
+		static async Task NewTweetFromFilterAsync(MatchedTweetReceivedEventArgs args, IGrouping<ulong, GuildTwitterAccounts> group)
+		{
+			using SkuldDbContext database = new SkuldDbContextFactory().CreateDbContext();
+
+			var gld = database.Guilds.AsNoTracking().FirstOrDefault(g => g.Id == group.ToList()[0].GuildId);
+
+			string msg = $"New tweet from: {args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName}";
+
+			if (!(string.IsNullOrEmpty(gld.NewTweetMessage) || string.IsNullOrWhiteSpace(gld.NewTweetMessage)))
+			{
+				msg = gld.NewTweetMessage.ReplaceSocialEventMessage(args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName, new Uri(args.Tweet.Url));
+			}
+
+			await DiscordClient.GetGuild(group.ToList()[0].GuildId).GetTextChannel(group.Key).SendMessageAsync(
+				msg,
+				embed: GetEmbedFromTweet(args.Tweet)
+			).ConfigureAwait(false);
 		}
 
 		static Embed GetEmbedFromTweet(ITweet tweet)
