@@ -44,13 +44,13 @@ namespace Skuld.Services.VoiceExperience
 			SocketVoiceState currentState
 		)
 		{
-			if (previousState.VoiceChannel != null && currentState.VoiceChannel != null)
+			if (previousState.VoiceChannel is not null && currentState.VoiceChannel is not null)
 			{
 				if (previousState.VoiceChannel.Guild == currentState.VoiceChannel.Guild)
 					return currentState.VoiceChannel;
 			}
 
-			if (previousState.VoiceChannel == null && currentState.VoiceChannel != null)
+			if (previousState.VoiceChannel is null && currentState.VoiceChannel is not null)
 				return currentState.VoiceChannel;
 
 			return previousState.VoiceChannel;
@@ -87,7 +87,7 @@ namespace Skuld.Services.VoiceExperience
 
 			var connect = userEvents.FirstOrDefault(x => x.IsValid);
 
-			if (connect == null)
+			if (connect is null)
 			{
 				return;
 			}
@@ -100,7 +100,7 @@ namespace Skuld.Services.VoiceExperience
 
 			ulong totalTime = 0;
 
-			if (disallowedPoints.Any() && disallowedPoints.Count >= 2)
+			if (disallowedPoints.Any() && disallowedPoints.Count() >= 2)
 			{
 				var disallowedTime =
 					disallowedPoints.LastOrDefault().Time -
@@ -115,13 +115,6 @@ namespace Skuld.Services.VoiceExperience
 
 			totalTime /= 60;
 
-			var xpToGrant = DatabaseUtilities.GetExpMultiFromMinutesInVoice(
-				Configuration.VoiceExpDeterminate,
-				Configuration.VoiceExpMinMinutes,
-				Configuration.VoiceExpMaxGrant,
-				totalTime
-			);
-
 			{
 				using var Database = new SkuldDbContextFactory()
 					.CreateDbContext();
@@ -129,7 +122,21 @@ namespace Skuld.Services.VoiceExperience
 				var skUser = await
 					Database.InsertOrGetUserAsync(state.User)
 				.ConfigureAwait(false);
-				await skUser.GrantExperienceAsync((ulong)xpToGrant,
+
+				var skGuild = await
+					Database.InsertOrGetGuildAsync(state.Guild)
+				.ConfigureAwait(false);
+
+				ulong maxAmount = (ulong)Math.Round(Configuration.VoiceExpMaxGrant * skGuild.XPModifier, 0);
+
+				var xpToGrant = DatabaseUtilities.GetExpMultiFromMinutesInVoice(
+					Configuration.VoiceExpDeterminate,
+					Configuration.VoiceExpMinMinutes,
+					maxAmount,
+					totalTime
+				);
+
+				await skUser.GrantExperienceAsync(xpToGrant,
 					state.Channel.Guild,
 					ExperienceService.VoiceAction
 				).ConfigureAwait(false);
@@ -137,6 +144,26 @@ namespace Skuld.Services.VoiceExperience
 				var voiceXp = Database.UserXp.FirstOrDefault(x =>
 					x.UserId == skUser.Id &&
 					x.GuildId == state.Channel.Guild.Id
+				);
+
+				voiceXp.TimeInVoiceM = totalTime.Subtract(
+					Configuration.VoiceExpMinMinutes
+				);
+
+				await Database.SaveChangesAsync().ConfigureAwait(false);
+
+				var baseXpToGrant = DatabaseUtilities.GetExpMultiFromMinutesInVoice(
+					Configuration.VoiceExpDeterminate,
+					Configuration.VoiceExpMinMinutes,
+					Configuration.VoiceExpMaxGrant,
+					totalTime
+				);
+
+				await skUser.GrantExperienceAsync(baseXpToGrant, guild: null, null).ConfigureAwait(false);
+
+				voiceXp = Database.UserXp.FirstOrDefault(x =>
+					x.UserId == skUser.Id &&
+					x.GuildId == 0
 				);
 
 				voiceXp.TimeInVoiceM = totalTime.Subtract(
@@ -183,7 +210,7 @@ namespace Skuld.Services.VoiceExperience
 				feats = Database.Features.Find(guild.Id);
 			}
 
-			if (feats != null && feats.Experience)
+			if (feats is not null && feats.Experience)
 			{
 				await
 					ProcessUser(state,
@@ -204,7 +231,7 @@ namespace Skuld.Services.VoiceExperience
 				if (difference.IsAlone ||
 					difference.IsAloneWithBot ||
 					difference.DidMoveToAFKChannel ||
-					(difference.DidMute || difference.DidDeafen) == true)
+					(difference.DidMute || difference.DidDeafen) is true)
 				{
 					Targets.Add(
 						new VoiceEvent(
@@ -246,7 +273,7 @@ namespace Skuld.Services.VoiceExperience
 			if (difference.IsAlone ||
 				difference.IsAloneWithBot ||
 				difference.DidMoveToAFKChannel ||
-				(difference.DidMute || difference.DidDeafen) == true)
+				(difference.DidMute || difference.DidDeafen) is true)
 			{
 				Targets.Add(
 					new VoiceEvent(
@@ -293,11 +320,11 @@ namespace Skuld.Services.VoiceExperience
 			{
 				get
 				{
-					return UserDifference.Count == 2 &&
+					return UserDifference.Count is 2 &&
 						UserDifference.Any(x => x.IsBot);
 				}
 			}
-			public bool IsAlone { get => UserDifference.Count == 1; }
+			public bool IsAlone { get => UserDifference.Count is 1; }
 			public bool DidMoveToAFKChannel { get; private set; }
 			public bool DidDisconnect { get; private set; }
 			public bool DidConnect { get; private set; }
@@ -322,41 +349,41 @@ namespace Skuld.Services.VoiceExperience
 					DidServerDeafen = !previousState.IsDeafened &&
 									   newState.IsDeafened,
 
-					DidDisconnect = newState.VoiceChannel == null,
+					DidDisconnect = newState.VoiceChannel is null,
 
-					DidConnect = previousState.VoiceChannel == null &&
-								 newState.VoiceChannel != null
+					DidConnect = previousState.VoiceChannel is null &&
+								 newState.VoiceChannel is not null
 				};
 
-				if (newState.VoiceChannel != null)
+				if (newState.VoiceChannel is not null)
 				{
 					SocketVoiceChannel afkChannel =
 						newState.VoiceChannel.Guild.AFKChannel;
 
 					difference.DidMoveToAFKChannel =
-						afkChannel != null && newState.VoiceChannel == afkChannel;
+						afkChannel is not null && newState.VoiceChannel == afkChannel;
 				}
 				else
 				{
 					difference.DidMoveToAFKChannel = false;
 				}
 
-				if (newState.VoiceChannel == null &&
-					previousState.VoiceChannel != null)
+				if (newState.VoiceChannel is null &&
+					previousState.VoiceChannel is not null)
 				{
 					difference.UserDifference =
 						previousState.VoiceChannel.Users.ToList();
 				}
-				else if (newState.VoiceChannel != null &&
-					previousState.VoiceChannel != null)
+				else if (newState.VoiceChannel is not null &&
+					previousState.VoiceChannel is not null)
 				{
 					difference.UserDifference =
 						newState.VoiceChannel.Users.Where(
 							x => !previousState.VoiceChannel.Users.Contains(x)
 						).ToList();
 				}
-				else if (newState.VoiceChannel != null &&
-					previousState.VoiceChannel == null)
+				else if (newState.VoiceChannel is not null &&
+					previousState.VoiceChannel is null)
 				{
 					difference.UserDifference =
 						newState.VoiceChannel.Users.ToList();

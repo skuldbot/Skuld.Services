@@ -43,7 +43,7 @@ namespace Skuld.Services.WebSocket
 				if (ulong.TryParse(message.Replace("user:", ""), out var userid))
 				{
 					var usr = Client.GetUser(userid);
-					if (usr != null)
+					if (usr is not null)
 					{
 						var wsuser = new WebSocketUser
 						{
@@ -75,7 +75,7 @@ namespace Skuld.Services.WebSocket
 				if (ulong.TryParse(message.Replace("guild:", ""), out var guildid))
 				{
 					var gld = Client.GetGuild(guildid);
-					if (gld != null)
+					if (gld is not null)
 					{
 						var wsgld = new WebSocketGuild
 						{
@@ -105,7 +105,7 @@ namespace Skuld.Services.WebSocket
 				if (ulong.TryParse(message.Replace("roles:", ""), out var guildid))
 				{
 					var gld = Client.GetGuild(guildid);
-					if (gld != null)
+					if (gld is not null)
 					{
 						List<WebSocketSnowFlake> snowflakes = new();
 
@@ -146,7 +146,7 @@ namespace Skuld.Services.WebSocket
 				if (ulong.TryParse(message.Replace("tchannels:", ""), out var guildid))
 				{
 					var gld = Client.GetGuild(guildid);
-					if (gld != null)
+					if (gld is not null)
 					{
 						List<WebSocketSnowFlake> snowflakes = new();
 
@@ -187,7 +187,7 @@ namespace Skuld.Services.WebSocket
 				if (ulong.TryParse(message.Replace("cchannels:", ""), out var guildid))
 				{
 					var gld = Client.GetGuild(guildid);
-					if (gld != null)
+					if (gld is not null)
 					{
 						List<WebSocketSnowFlake> snowflakes = new();
 
@@ -228,7 +228,7 @@ namespace Skuld.Services.WebSocket
 				if (ulong.TryParse(message.Replace("vchannels:", "", StringComparison.InvariantCultureIgnoreCase), System.Globalization.NumberStyles.Integer, null, out var guildid))
 				{
 					var gld = Client.GetGuild(guildid);
-					if (gld != null)
+					if (gld is not null)
 					{
 						List<WebSocketSnowFlake> snowflakes = new();
 
@@ -264,7 +264,7 @@ namespace Skuld.Services.WebSocket
 					await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Invalid input, check and try again"))).ConfigureAwait(false);
 				}
 			}
-			if (message.ToLowerInvariant() == "stats" || message.ToLowerInvariant() == "status")
+			if (message.ToLowerInvariant() is "stats" || message.ToLowerInvariant() is "status")
 			{
 				string mem;
 				if (SkuldAppContext.MemoryStats.GetMBUsage > 1024)

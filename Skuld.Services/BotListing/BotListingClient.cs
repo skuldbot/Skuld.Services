@@ -31,7 +31,7 @@ namespace Skuld.Services.BotListing
 		{
 			if (isDev) return;
 
-			if (rateLimiter == null)
+			if (rateLimiter is null)
 			{
 				rateLimiter = new RateLimiter();
 			}

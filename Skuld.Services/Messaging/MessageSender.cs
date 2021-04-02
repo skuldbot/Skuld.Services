@@ -27,7 +27,7 @@ namespace Skuld.Services.Messaging
 
 				if (replyMessage.Channel is IGuildChannel)
 				{
-					if ((replyMessage.Channel as IGuildChannel).Guild != null)
+					if ((replyMessage.Channel as IGuildChannel).Guild is not null)
 					{
 						Log.Info(Key, $"Dispatched message to {(replyMessage.Channel as IGuildChannel).Guild} in {(replyMessage.Channel as IGuildChannel).Name}");
 					}
@@ -39,7 +39,7 @@ namespace Skuld.Services.Messaging
 
 				IUserMessage createdMessage;
 
-				if (file == null)
+				if (file is null)
 				{
 					createdMessage =
 						await
@@ -55,7 +55,7 @@ namespace Skuld.Services.Messaging
 				{
 					createdMessage =
 						await
-							replyMessage.Channel.SendFileAsync(file, fileName, message, false, embed, null, false, null, replyMessage.Reference)
+							replyMessage.Channel.SendFileAsync(file, fileName, message, false, embed, null, false, null, replyMessage.GetReference())
 						.ConfigureAwait(false);
 
 					if (timeout != -1)
@@ -64,7 +64,7 @@ namespace Skuld.Services.Messaging
 					}
 				}
 
-				if (createdMessage is not null)
+				if (createdMessage is not null && addReactions is not null)
 				{
 					List<IEmote> formattedAddReactions = new();
 
@@ -101,7 +101,7 @@ namespace Skuld.Services.Messaging
 			string fileName = "filename.file",
 			int timeout = -1)
 		{
-			if (channel == null) { return null; }
+			if (channel is null) { return null; }
 
 			try
 			{
@@ -109,7 +109,7 @@ namespace Skuld.Services.Messaging
 
 				if (channel is IGuildChannel)
 				{
-					if ((channel as IGuildChannel).Guild != null)
+					if ((channel as IGuildChannel).Guild is not null)
 					{
 						Log.Info(Key, $"Dispatched message to {(channel as IGuildChannel).Guild} in {(channel as IGuildChannel).Name}");
 					}
@@ -121,7 +121,7 @@ namespace Skuld.Services.Messaging
 
 				IUserMessage createdMessage;
 
-				if (file == null)
+				if (file is null)
 				{
 					createdMessage =
 						await
@@ -146,7 +146,7 @@ namespace Skuld.Services.Messaging
 					}
 				}
 
-				if (createdMessage is not null)
+				if (createdMessage is not null && addReactions is not null)
 				{
 					List<IEmote> formattedAddReactions = new();
 

@@ -20,17 +20,24 @@ namespace Skuld.Services.Accounts.Experience
 			ICommandContext context
 		)
 		{
-			if (context.User.IsBot || context.User.IsWebhook || context.Guild == null) return;
+			if (context.User.IsBot || context.User.IsWebhook || context.Guild is null) return;
 
 			try
 			{
 				using var Database = new SkuldDbContextFactory().CreateDbContext();
 
-				var User = await Database.InsertOrGetUserAsync(context.User).ConfigureAwait(false);
+				var user = await Database.InsertOrGetUserAsync(context.User).ConfigureAwait(false);
 
-				await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), context, DefaultAction).ConfigureAwait(false);
+				if (context.Guild is not null)
+				{
+					var guild = await Database.InsertOrGetGuildAsync(context.Guild).ConfigureAwait(false);
 
-				await User.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), context, null).ConfigureAwait(false);
+					int maxAmount = (int)Math.Round(51 * guild.XPModifier, 0);
+
+					await user.GrantExperienceAsync((ulong)SkuldRandom.Next(1, maxAmount), context, DefaultAction).ConfigureAwait(false);
+				}
+
+				await user.GrantExperienceAsync((ulong)SkuldRandom.Next(1, 51), null, null, false, context).ConfigureAwait(false);
 
 				await Database.SaveChangesAsync().ConfigureAwait(false);
 			}
@@ -42,7 +49,7 @@ namespace Skuld.Services.Accounts.Experience
 
 		static string GetMessage(IUser user, IGuild guild, Guild dbGuild, IUserMessage message, ulong level, IEnumerable<LevelRewards> roles, bool showFromVoice = false)
 		{
-			if (guild == null || dbGuild == null || user == null) return null;
+			if (guild is null || dbGuild is null || user is null) return null;
 
 			try
 			{
@@ -50,9 +57,9 @@ namespace Skuld.Services.Accounts.Experience
 
 				string rles = "";
 
-				if (guild != null)
+				if (guild is not null)
 				{
-					if (roles != null && roles.Any())
+					if (roles is not null && roles.Any())
 					{
 						if (roles.Count() <= 10)
 						{
@@ -69,7 +76,7 @@ namespace Skuld.Services.Accounts.Experience
 					}
 				}
 
-				if (msg != null && user != null && guild != null)
+				if (msg is not null && user is not null && guild is not null)
 				{
 					msg = msg.ReplaceGuildEventMessage(user, guild as SocketGuild)
 						.ReplaceFirst("-l", level.ToFormattedString())
@@ -117,7 +124,7 @@ namespace Skuld.Services.Accounts.Experience
 		public static Action<IGuildUser, IGuild, Guild, ICommandContext, ulong> DefaultAction = new(
 			async (user, guild, dbGuild, context, level) =>
 			{
-				if (guild == null || dbGuild == null || context == null || user == null) return;
+				if (guild is null || dbGuild is null || context is null || user is null) return;
 
 				using var Database = new SkuldDbContextFactory().CreateDbContext();
 
@@ -165,7 +172,7 @@ namespace Skuld.Services.Accounts.Experience
 
 		static async Task HandleMessageSend(IGuildUser user, IGuild guild, Guild dbGuild, ICommandContext context, string msg)
 		{
-			if (guild == null || dbGuild == null || context == null || user == null) return;
+			if (guild is null || dbGuild is null || context is null || user is null) return;
 
 			switch (dbGuild.LevelNotification)
 			{
@@ -177,7 +184,7 @@ namespace Skuld.Services.Accounts.Experience
 								guild.GetTextChannelAsync(dbGuild.LevelUpChannel)
 							.ConfigureAwait(false);
 
-							if (channel != null)
+							if (channel is not null)
 							{
 								await
 									MessageSender.SendMessageTo(channel, msg)
@@ -235,7 +242,7 @@ namespace Skuld.Services.Accounts.Experience
 		public static Action<IGuildUser, IGuild, Guild, ICommandContext, ulong> VoiceAction = new(
 			async (user, guild, dbGuild, context, level) =>
 			{
-				if (guild == null || dbGuild == null || context == null || user == null) return;
+				if (guild is null || dbGuild is null || context is null || user is null) return;
 
 				using var Database = new SkuldDbContextFactory().CreateDbContext();
 

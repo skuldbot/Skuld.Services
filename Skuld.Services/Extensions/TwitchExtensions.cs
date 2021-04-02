@@ -61,31 +61,31 @@ namespace Skuld.Services.Extensions
 
             string channelBadges = null;
 
-            if (twitchStatus != null)
+            if (twitchStatus is not null)
             {
                 channelBadges += twitchStatus;
             }
-            if (channelIcon != null)
+            if (channelIcon is not null)
             {
                 channelBadges += channelIcon;
             }
 
-            if (channelBadges != null)
+            if (channelBadges is not null)
             {
                 embed.AddInlineField("Channel Badges", channelBadges);
             }
 
-            if (stream != null)
+            if (stream is not null)
             {
                 embed.Title = channel.Status;
 
-                if (stream.Game != null)
+                if (stream.Game is not null)
                 {
                     embed.AddInlineField("Streaming", stream.Game);
                 }
                 embed.AddInlineField("Viewers 👀", stream.Viewers.ToFormattedString());
 
-                if (stream.Preview != null)
+                if (stream.Preview is not null)
                 {
                     embed.ImageUrl = stream.Preview.Large;
                 }

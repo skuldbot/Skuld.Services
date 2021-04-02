@@ -2,6 +2,7 @@
 using Discord.WebSocket;
 using Skuld.Core;
 using Skuld.Core.Extensions;
+using Skuld.Core.Extensions.Verification;
 using Skuld.Models;
 using System;
 using System.Collections.Generic;
@@ -84,7 +85,7 @@ namespace Skuld.Services.Twitter
 
 			string msg = $"New tweet from: {args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName}";
 
-			if (!(string.IsNullOrEmpty(gld.NewTweetMessage) || string.IsNullOrWhiteSpace(gld.NewTweetMessage)))
+			if (!gld.NewTweetMessage.IsNullOrWhiteSpace())
 			{
 				msg = gld.NewTweetMessage.ReplaceSocialEventMessage(args.Tweet.CreatedBy.Name ?? args.Tweet.CreatedBy.ScreenName, new Uri(args.Tweet.Url));
 			}
@@ -107,7 +108,7 @@ namespace Skuld.Services.Twitter
 				.WithColor($"#{tweet.CreatedBy.ProfileBackgroundColor}".FromHex())
 				.WithTimestamp(tweet.CreatedAt)
 				.WithFooter("Tweeted at")
-				.WithImageUrl(tweet.Media.Any() ? tweet.Media.FirstOrDefault(x => x.VideoDetails == null).MediaURLHttps : "")
+				.WithImageUrl(tweet.Media.Any() ? tweet.Media.FirstOrDefault(x => x.VideoDetails is null).MediaURLHttps : "")
 				.WithUrl(tweet.Url)
 				.Build();
 	}

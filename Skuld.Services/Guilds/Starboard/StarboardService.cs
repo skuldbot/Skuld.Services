@@ -29,8 +29,8 @@ namespace Skuld.Services.Guilds.Starboard
 		#region Events
 		public static async Task ExecuteAdditionAsync(IMessage message, ISocketMessageChannel channel, SocketReaction reaction)
 		{
-			if (message == null) return;
-			if (channel == null) return;
+			if (message is null) return;
+			if (channel is null) return;
 			try
 			{
 				if (channel is ITextChannel guildChannel)
@@ -181,7 +181,7 @@ namespace Skuld.Services.Guilds.Starboard
 
 		public static async Task ExecuteRemovalAsync(IMessage message, ulong reactorId)
 		{
-			if (message == null) return;
+			if (message is null) return;
 			try
 			{
 				if (message.Channel is IGuildChannel guildChannel)
@@ -193,14 +193,14 @@ namespace Skuld.Services.Guilds.Starboard
 
 					StarboardVote starboardVote = Database.StarboardVotes.FirstOrDefault(x => x.MessageId == message.Id && x.VoterId == reactorId);
 
-					if (starboardVote == null)
+					if (starboardVote is null)
 					{
 						starboardVote = Database.StarboardVotes.FirstOrDefault(x => x.StarboardMessageId == message.Id && x.VoterId == reactorId);
 					}
 
 					bool didChange = false;
 
-					if (starboardVote != null)
+					if (starboardVote is not null)
 					{
 						bool isStarboardMessage = starboardVote.StarboardMessageId == message.Id;
 
@@ -234,7 +234,7 @@ namespace Skuld.Services.Guilds.Starboard
 								totalCount = Database.StarboardVotes.Count(x => x.StarboardMessageId == message.Id);
 							}
 
-							if (totalCount == 0 && isStarboardMessage)
+							if (totalCount is 0 && isStarboardMessage)
 							{
 								var chan = message.Channel as ITextChannel;
 
@@ -270,17 +270,17 @@ namespace Skuld.Services.Guilds.Starboard
 			var blacklist = Database.StarboardBlacklist.ToList().Where(x => x.GuildId == channel.Guild.Id);
 			var whitelist = Database.StarboardWhitelist.ToList().Where(x => x.GuildId == channel.Guild.Id);
 
-			if (dbGuild.StarboardChannel == 0) return false;
+			if (dbGuild.StarboardChannel is 0) return false;
 
 			var chan = await channel.Guild.GetTextChannelAsync(dbGuild.StarboardChannel).ConfigureAwait(false);
-			if (chan == null) return false;
+			if (chan is null) return false;
 
 			if (channel.IsNsfw && !chan.IsNsfw) return false;
 
 			if (!blacklist.Any()) return true;
 			if (blacklist.Any(x => x.TargetId == reactorId)) return false;
 
-			if (channel.CategoryId != null)
+			if (channel.CategoryId is not null)
 			{
 				if (blacklist.Any(x => x.TargetId == channel.CategoryId))
 				{
@@ -384,7 +384,7 @@ namespace Skuld.Services.Guilds.Starboard
 
 			var msg = await starboard.GetMessageAsync(starboardedMessage).ConfigureAwait(false);
 
-			if (msg == null && fallbackMessage is not IUserMessage)
+			if (msg is null && fallbackMessage is not IUserMessage)
 			{
 				msg = await SendMessageAsync(fallbackMessage, guild, dbGuild, Reactions).ConfigureAwait(false);
 			}

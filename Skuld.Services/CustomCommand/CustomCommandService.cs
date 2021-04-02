@@ -18,12 +18,12 @@ namespace Skuld.Services.CustomCommands
 			using var Database = new SkuldDbContextFactory().CreateDbContext();
 
 			var prefix = MessageTools.GetPrefixFromCommand(context.Message.Content, config.Prefix, config.AltPrefix, (await Database.InsertOrGetGuildAsync(context.Guild).ConfigureAwait(false)).Prefix);
-			if (prefix != null)
+			if (prefix is not null)
 			{
 				var name = MessageTools.GetCommandName(prefix, context.Message as SocketMessage);
 				var customcommand = Database.CustomCommands.FirstOrDefault(x => x.GuildId == context.Guild.Id && x.Name.IsSameUpperedInvariant(name));
 
-				if (customcommand != null)
+				if (customcommand is not null)
 				{
 					await DispatchCommandAsync(context, customcommand).ConfigureAwait(false);
 					return;
@@ -57,7 +57,7 @@ namespace Skuld.Services.CustomCommands
 			using var Database = new SkuldDbContextFactory().CreateDbContext();
 
 			var experience = Database.UserCommandUsage.FirstOrDefault(x => x.UserId == user.Id && x.Command.IsSameUpperedInvariant(command.Name));
-			if (experience != null)
+			if (experience is not null)
 			{
 				experience.Usage += 1;
 			}

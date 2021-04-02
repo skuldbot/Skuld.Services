@@ -31,7 +31,7 @@ namespace Skuld.Services.Messaging
                                 {
                                     if(msg.Channel is IGuildChannel msgChan)
                                     {
-                                        if(SkuldApp.DiscordClient.GetGuild(msgChan.GuildId) != null)
+                                        if(SkuldApp.DiscordClient.GetGuild(msgChan.GuildId) is not null)
                                         {
                                             mssgQueue.Add(msg);
                                         }
@@ -103,7 +103,7 @@ namespace Skuld.Services.Messaging
                                         break;
                                 }
 
-                                if (message.Content.File != null)
+                                if (message.Content.File is not null)
                                     await message.Content.File.DisposeAsync().ConfigureAwait(false);
 
                                 await Task.Delay(messageDelay * messageQueue.Count).ConfigureAwait(false);

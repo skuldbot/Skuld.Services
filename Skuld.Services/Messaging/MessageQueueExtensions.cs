@@ -12,16 +12,16 @@ namespace Skuld.Services.Messaging.Extensions
 	{
 		private static async Task<IUserMessage> SendMessageAsync(string content,
 											 ICommandContext context,
-											 bool reply = false,
+											 bool reply = true,
 											 Embed embed = null,
-											 Stream filestream = null,
-											 string filename = "filename.file",
+											 Stream fileStream = null,
+											 string fileName = "filename.file",
 											 Models.MessageType type = Models.MessageType.Standard,
 											 string[] addReactions = null,
 											 Exception exception = null,
 											 int timeout = -1)
 		{
-			if (exception != null)
+			if (exception is not null)
 			{
 				Log.Debug("MQEx", exception.Message, context, exception);
 			}
@@ -32,25 +32,25 @@ namespace Skuld.Services.Messaging.Extensions
 					if (!reply)
 						return await MessageSender.SendMessageTo(context.Channel, content, embed, addReactions).ConfigureAwait(false);
 					else
-						return await context.Message.ReplyToAsync(content, embed, addReactions, filestream, filename, timeout);
+						return await context.Message.ReplyToAsync(content, embed, addReactions, fileStream, fileName, timeout);
 
 				case Models.MessageType.Mention:
 					if (!reply)
 						return await MessageSender.SendMessageTo(context.Channel, $"{context.User.Mention} {content}", embed, addReactions).ConfigureAwait(false);
 					else
-						return await context.Message.ReplyToAsync(content, embed, addReactions, filestream, filename, timeout);
+						return await context.Message.ReplyToAsync(content, embed, addReactions, fileStream, fileName, timeout);
 
 				case Models.MessageType.DMS:
 					if (!reply)
 						return await MessageSender.SendMessageToUser(context.User, content, embed: embed, addReactions).ConfigureAwait(false);
 					else
-						return await context.Message.ReplyToAsync(content, embed, addReactions, filestream, filename, timeout);
+						return await context.Message.ReplyToAsync(content, embed, addReactions, fileStream, fileName, timeout);
 
 				case Models.MessageType.Timed:
 					if (!reply)
 						await MessageSender.SendMessageTo(context.Channel, content, embed, addReactions, timeout: timeout).ConfigureAwait(false);
 					else
-						await context.Message.ReplyToAsync(content, embed, addReactions, filestream, filename, timeout);
+						await context.Message.ReplyToAsync(content, embed, addReactions, fileStream, fileName, timeout);
 					return null;
 
 				default:
@@ -61,7 +61,7 @@ namespace Skuld.Services.Messaging.Extensions
 		#region String
 		public static async Task<IUserMessage> QueueMessageAsync(this string content,
 											 ICommandContext context,
-											 bool reply = false,
+											 bool reply = true,
 											 Embed embed = null,
 											 Stream fileStream = null,
 											 string fileName = "filename.file",
@@ -73,7 +73,7 @@ namespace Skuld.Services.Messaging.Extensions
 
 		public static async Task<IUserMessage> QueueMessageAsync(this StringBuilder content,
 											 ICommandContext context,
-											 bool reply = false,
+											 bool reply = true,
 											 Embed embed = null,
 											 Stream fileStream = null,
 											 string fileName = "filename.file",
@@ -87,7 +87,7 @@ namespace Skuld.Services.Messaging.Extensions
 		#region Embeds
 		public static async Task<IUserMessage> QueueMessageAsync(this Embed embed,
 											 ICommandContext context,
-											 bool reply = false,
+											 bool reply = true,
 											 string content = "",
 											 Stream fileStream = null,
 											 string fileName = "filename.file",
@@ -100,7 +100,7 @@ namespace Skuld.Services.Messaging.Extensions
 
 		public static async Task<IUserMessage> QueueMessageAsync(this EmbedBuilder embed,
 											 ICommandContext context,
-											 bool reply = false,
+											 bool reply = true,
 											 string content = "",
 											 Stream fileStream = null,
 											 string fileName = "filename.file",
@@ -113,7 +113,7 @@ namespace Skuld.Services.Messaging.Extensions
 
 		public static async Task<IUserMessage> QueueMessageAsync(this object obj,
 											 ICommandContext context,
-											 bool reply = false,
+											 bool reply = true,
 											 Stream filestream = null,
 											 string filename = "filename.file",
 											 Models.MessageType type = Models.MessageType.Standard,

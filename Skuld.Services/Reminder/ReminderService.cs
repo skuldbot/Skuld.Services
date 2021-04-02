@@ -28,7 +28,7 @@ namespace Skuld.Services.Reminders
 				var currentTime = DateTime.UtcNow.ToEpoch();
 
 				if (DiscordClient.Shards
-					.All(x => x.ConnectionState == ConnectionState.Connected)
+					.All(x => x.ConnectionState is ConnectionState.Connected)
 				)
 				{
 					if (Database.Reminders.Any())

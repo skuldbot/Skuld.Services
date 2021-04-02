@@ -39,7 +39,7 @@ namespace Skuld.Services.Globalization
 		public ResourceManager GetLocale(string id)
 		{
 			var locale = locales.FirstOrDefault(x => x.Key == id);
-			if (locale.Value != null)
+			if (locale.Value is not null)
 				return locale.Value;
 			else
 				return null;

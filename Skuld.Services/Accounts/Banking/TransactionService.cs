@@ -23,7 +23,7 @@ namespace Skuld.Services.Banking
 
 		public static EventResult DoTransaction(TransactionStruct transaction)
 		{
-			if (transaction.Sender != null)
+			if (transaction.Sender is not null)
 			{
 				var result = CanPerformTransaction(transaction.Sender.Money, transaction.Amount);
 				if (!result.Successful)
@@ -35,7 +35,7 @@ namespace Skuld.Services.Banking
 				DogStatsd.Increment("economy.processed.taken", (int)transaction.Amount);
 			}
 
-			if (transaction.Receiver != null)
+			if (transaction.Receiver is not null)
 			{
 				transaction.Receiver.Money = transaction.Receiver.Money.Add(transaction.Amount);
 				DogStatsd.Increment("economy.processed.given", (int)transaction.Amount);

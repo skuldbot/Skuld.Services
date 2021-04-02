@@ -41,7 +41,7 @@ namespace Skuld.Services.Extensions
 			using var Database = new SkuldDbContextFactory().CreateDbContext();
 			UserExperience luxp;
 
-			if (guild != null)
+			if (guild is not null)
 			{
 				luxp = Database.UserXp.FirstOrDefault(
 					x => x.UserId == user.Id
@@ -63,7 +63,7 @@ namespace Skuld.Services.Extensions
 			bool didLevelUp = false;
 			var now = DateTime.UtcNow.ToEpoch();
 
-			if (luxp != null)
+			if (luxp is not null)
 			{
 				var check = now - luxp.LastGranted;
 
@@ -98,7 +98,7 @@ namespace Skuld.Services.Extensions
 			{
 				ulong id = 0;
 
-				if (guild != null)
+				if (guild is not null)
 				{
 					id = guild.Id;
 				}
@@ -180,7 +180,7 @@ namespace Skuld.Services.Extensions
 			{
 				if (levelAmount > 0)
 				{
-					if (action != null)
+					if (action is not null)
 					{
 						action.Invoke(await guild.GetUserAsync(user.Id).ConfigureAwait(false),
 									  guild,
@@ -217,7 +217,7 @@ namespace Skuld.Services.Extensions
 				}
 
 				Log.Verbose("XPGrant",
-					$"User leveled up {levelAmount} time{suffix}{(action != null ? "" : " globally")}",
+					$"User leveled up {levelAmount} time{suffix}{(action is not null ? "" : " globally")}",
 					context);
 
 				return EventResult<UserExperience>.FromSuccess(xp);
@@ -243,23 +243,23 @@ namespace Skuld.Services.Extensions
 			var sUser = await Database.InsertOrGetUserAsync(user).ConfigureAwait(false);
 
 			string status;
-			if (user.Activity != null)
+			if (user.Activity is not null)
 			{
-				if (user.Activity.Type == ActivityType.Streaming) status = DiscordUtilities.Streaming_Emote.ToString();
+				if (user.Activity.Type is ActivityType.Streaming) status = DiscordUtilities.Streaming_Emote.ToString();
 				else status = user.Status.StatusToEmote();
 			}
 			else status = user.Status.StatusToEmote();
 
 			var embed = new EmbedBuilder()
 				.AddAuthor(Client)
-				.WithTitle(guildUser != null ? guildUser.FullNameWithNickname() : user.FullName())
+				.WithTitle(guildUser is not null ? guildUser.FullNameWithNickname() : user.FullName())
 				.WithThumbnailUrl(user.GetAvatarUrl() ?? user.GetDefaultAvatarUrl())
 				.WithColor(guildUser?.GetHighestRoleColor(guildUser?.Guild) ?? EmbedExtensions.RandomEmbedColor());
 
 			embed.AddInlineField(":id: User ID", Convert.ToString(user.Id, CultureInfo.InvariantCulture) ?? "Unknown");
 			embed.AddInlineField(":vertical_traffic_light: Status", status ?? "Unknown");
 
-			if (user.Activity != null)
+			if (user.Activity is not null)
 			{
 				embed.AddInlineField(":video_game: Status", user.Activity.ActivityToString());
 			}
@@ -282,12 +282,12 @@ namespace Skuld.Services.Extensions
 				embed.AddInlineField($"Active Client{(user.ActiveClients.Count > 1 ? "s" : "")}", $"{clientString}");
 			}
 
-			if (roles != null)
+			if (roles is not null)
 			{
 				embed.AddField(":shield: Roles", $"[{roles.Count}] Do `{Configuration.Prefix}roles` to see your roles");
 			}
 
-			if (sUser.TimeZone != null)
+			if (sUser.TimeZone is not null)
 			{
 				var time = Instant.FromDateTimeUtc(DateTime.UtcNow).InZone(DateTimeZoneProviders.Tzdb.GetZoneOrNull(sUser.TimeZone)).ToDateTimeUnspecified().ToDMYString();
 
@@ -297,7 +297,7 @@ namespace Skuld.Services.Extensions
 			var createdatstring = user.CreatedAt.GetStringFromOffset(DateTime.UtcNow);
 			embed.AddField(":globe_with_meridians: Discord Join", user.CreatedAt.ToDMYString() + $" ({createdatstring})\t`DD/MM/YYYY`");
 
-			if (guildUser != null)
+			if (guildUser is not null)
 			{
 				var joinedatstring = guildUser.JoinedAt.Value.GetStringFromOffset(DateTime.UtcNow);
 				embed.AddField(":inbox_tray: Server Join", guildUser.JoinedAt.Value.ToDMYString() + $" ({joinedatstring})\t`DD/MM/YYYY`");
@@ -309,7 +309,7 @@ namespace Skuld.Services.Extensions
 
 				var offsetString = guildUser.PremiumSince.Value.GetStringFromOffset(DateTime.UtcNow);
 
-				embed.AddField(DiscordUtilities.NitroBoostEmote + " Boosting Since", $"{(icon == null ? "" : icon + " ")}{guildUser.PremiumSince.Value.UtcDateTime.ToDMYString()} ({offsetString})\t`DD/MM/YYYY`");
+				embed.AddField(DiscordUtilities.NitroBoostEmote + " Boosting Since", $"{(icon is null ? "" : icon + " ")}{guildUser.PremiumSince.Value.UtcDateTime.ToDMYString()} ({offsetString})\t`DD/MM/YYYY`");
 			}
 
 			return embed;
@@ -353,12 +353,12 @@ namespace Skuld.Services.Extensions
 		{
 			bool wasSuccessful = false;
 
-			if (donor == null)
+			if (donor is null)
 			{
 				donor = target;
 			}
 
-			if (donor.LastDaily == 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
+			if (donor.LastDaily is 0 || donor.LastDaily < DateTime.UtcNow.Date.ToEpoch())
 			{
 				TransactionService.DoTransaction(new TransactionStruct
 				{

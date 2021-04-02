@@ -17,7 +17,7 @@ namespace Skuld.Services.Guilds.Weekly
 			{
 				var currentTime = DateTime.UtcNow;
 
-				if (currentTime.DayOfWeek == DayOfWeek.Tuesday)
+				if (currentTime.DayOfWeek is DayOfWeek.Tuesday)
 				{
 					var listified = Database.GuildWeeklyPots.ToList();
 

@@ -27,7 +27,7 @@ namespace Skuld.Services
 			using var Database = new SkuldDbContextFactory().CreateDbContext();
 
 			var vote = Database.PastaVotes.ToList().FirstOrDefault(x => x.VoterId == reactor.Id && x.PastaId == pasta.Id);
-			if (vote == null)
+			if (vote is null)
 			{
 				Database.PastaVotes.Add(new PastaVotes
 				{
@@ -49,7 +49,7 @@ namespace Skuld.Services
 			using var Database = new SkuldDbContextFactory().CreateDbContext();
 
 			var vote = Database.PastaVotes.ToList().FirstOrDefault(x => x.VoterId == reactor.Id && x.PastaId == pasta.Id);
-			if (vote == null)
+			if (vote is null)
 			{
 				Database.PastaVotes.Add(new PastaVotes
 				{

@@ -33,9 +33,9 @@ namespace Skuld.Services.Guilds.Pinning
 			using var Database = new SkuldDbContextFactory().CreateDbContext();
 			try
 			{
-				var guild = client.Guilds.FirstOrDefault(x => x.TextChannels.FirstOrDefault(z => z.Id == channel.Id) != null);
+				var guild = client.Guilds.FirstOrDefault(x => x.TextChannels.FirstOrDefault(z => z.Id == channel.Id) is not null);
 
-				if (guild != null)
+				if (guild is not null)
 				{
 					var feats = Database.Features.Find(guild.Id);
 
@@ -46,7 +46,7 @@ namespace Skuld.Services.Guilds.Pinning
 						if (pins.Count < 50)
 						{
 							int pinboardThreshold = configuration.PinboardThreshold;
-							int pinboardReactions = message.Reactions.FirstOrDefault(x => x.Key.Name == "📌").Value.ReactionCount;
+							int pinboardReactions = message.Reactions.FirstOrDefault(x => x.Key.Name is "📌").Value.ReactionCount;
 
 							if (pinboardReactions >= pinboardThreshold)
 							{

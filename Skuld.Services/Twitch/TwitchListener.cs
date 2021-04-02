@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using Skuld.Core.Extensions;
+using Skuld.Core.Extensions.Verification;
 using Skuld.Core.Utilities;
 using Skuld.Models;
 using Skuld.Services.Extensions;
@@ -31,7 +32,7 @@ namespace Skuld.Services.Twitch
 		{
 			while (true)
 			{
-				if (DiscordClient.Shards.All(z => z.ConnectionState != ConnectionState.Connected)) continue;
+				if (!DiscordClient.Shards.All(z => z.ConnectionState == ConnectionState.Connected)) continue;
 
 				try
 				{
@@ -42,47 +43,48 @@ namespace Skuld.Services.Twitch
 						streamers = database.TwitchFollows.ToList().GroupBy(x => x.Streamer).ToList();
 					}
 
-					if (streamers == null) continue;
-
-					streamers.ForEach(async kvp =>
+					if (streamers is not null && streamers.Count > 0)
 					{
 						bool anyChange = false;
 
-						var usrs = await APIClient.V5.Users.GetUserByNameAsync(kvp.Key).ConfigureAwait(false);
-						var user = usrs.Matches[0];
-
-						bool isLive = await APIClient.V5.Streams.BroadcasterOnlineAsync(user.Id).ConfigureAwait(false);
-
-						var streams = await APIClient.V5.Streams.GetStreamByUserAsync(user.Id).ConfigureAwait(false);
-						var stream = streams.Stream;
-
-						List<ITextChannel> destinations = new();
-
-						foreach (var destination in kvp.ToList())
+						foreach (var kvp in streamers)
 						{
-							destinations.Add(DiscordClient.GetGuild(destination.GuildId).GetTextChannel(destination.ChannelId));
-						}
+							var usrs = await APIClient.V5.Users.GetUserByNameAsync(kvp.Key).ConfigureAwait(false);
+							var user = usrs.Matches[0];
 
-						foreach (var dest in kvp.ToList())
-						{
-							if (isLive)
+							bool isLive = await APIClient.V5.Streams.BroadcasterOnlineAsync(user.Id).ConfigureAwait(false);
+
+							var streams = await APIClient.V5.Streams.GetStreamByUserAsync(user.Id).ConfigureAwait(false);
+							var stream = streams.Stream;
+
+							List<ITextChannel> destinations = new();
+
+							foreach (var destination in kvp.ToList())
 							{
-								if (!dest.IsLive)
-								{
-									await BroadcastLiveAsync(user, stream, destinations).ConfigureAwait(false);
-								}
-
-								dest.IsLive = true;
-
-								anyChange = true;
+								destinations.Add(DiscordClient.GetGuild(destination.GuildId).GetTextChannel(destination.ChannelId));
 							}
-							else
+
+							foreach (var dest in kvp.ToList())
 							{
-								if (dest.IsLive)
+								if (isLive)
 								{
-									dest.IsLive = false;
+									if (!dest.IsLive)
+									{
+										await BroadcastLiveAsync(user, stream, destinations).ConfigureAwait(false);
+									}
+
+									dest.IsLive = true;
 
 									anyChange = true;
+								}
+								else
+								{
+									if (dest.IsLive)
+									{
+										dest.IsLive = false;
+
+										anyChange = true;
+									}
 								}
 							}
 						}
@@ -91,15 +93,15 @@ namespace Skuld.Services.Twitch
 						{
 							await database.SaveChangesAsync().ConfigureAwait(false);
 						}
-					});
-
-					await Task.Delay(TimeSpan.FromMinutes(1)).ConfigureAwait(false);
-					Log.Verbose(Key, "Tried getting twitch channels", null);
+					}
 				}
 				catch (Exception ex)
 				{
 					Log.Error(Key, ex.Message, null, ex);
 				}
+
+				Log.Verbose(Key, "Tried getting twitch channels", null);
+				await Task.Delay(TimeSpan.FromMinutes(1)).ConfigureAwait(false);
 			}
 		}
 
@@ -125,7 +127,7 @@ namespace Skuld.Services.Twitch
 
 				string msg = $"{user.DisplayName} is live!";
 
-				if (!(string.IsNullOrEmpty(gld.TwitchLiveMessage) || string.IsNullOrWhiteSpace(gld.TwitchLiveMessage)))
+				if (!gld.TwitchLiveMessage.IsNullOrWhiteSpace())
 				{
 					msg = gld.TwitchLiveMessage.ReplaceSocialEventMessage(user.DisplayName, new(channel.Url));
 				}
