@@ -54,7 +54,7 @@ namespace Skuld.Services.WebSocket
 							Status = usr.Status.ToString()
 						};
 
-						var res = EventResult<WebSocketUser>.FromSuccess(wsuser);
+						var res = EventResult.FromSuccess(wsuser);
 
 						var cnv = JsonConvert.SerializeObject(res);
 
@@ -84,7 +84,7 @@ namespace Skuld.Services.WebSocket
 							Id = gld.Id
 						};
 
-						var res = EventResult<WebSocketGuild>.FromSuccess(wsgld);
+						var res = EventResult.FromSuccess(wsgld);
 
 						var cnv = JsonConvert.SerializeObject(res);
 
@@ -92,7 +92,7 @@ namespace Skuld.Services.WebSocket
 					}
 					else
 					{
-						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketGuild>.FromFailure("Guild not found"))).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Guild not found"))).ConfigureAwait(false);
 					}
 				}
 				else
@@ -125,7 +125,7 @@ namespace Skuld.Services.WebSocket
 							Data = snowflakes
 						};
 
-						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+						var res = EventResult.FromSuccess(wsgld);
 
 						var cnv = JsonConvert.SerializeObject(res);
 
@@ -133,7 +133,7 @@ namespace Skuld.Services.WebSocket
 					}
 					else
 					{
-						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Guild not found"))).ConfigureAwait(false);
 					}
 				}
 				else
@@ -166,7 +166,7 @@ namespace Skuld.Services.WebSocket
 							Data = snowflakes
 						};
 
-						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+						var res = EventResult.FromSuccess(wsgld);
 
 						var cnv = JsonConvert.SerializeObject(res);
 
@@ -174,7 +174,7 @@ namespace Skuld.Services.WebSocket
 					}
 					else
 					{
-						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Guild not found"))).ConfigureAwait(false);
 					}
 				}
 				else
@@ -207,7 +207,7 @@ namespace Skuld.Services.WebSocket
 							Data = snowflakes
 						};
 
-						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+						var res = EventResult.FromSuccess(wsgld);
 
 						var cnv = JsonConvert.SerializeObject(res);
 
@@ -215,7 +215,7 @@ namespace Skuld.Services.WebSocket
 					}
 					else
 					{
-						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Guild not found"))).ConfigureAwait(false);
 					}
 				}
 				else
@@ -248,7 +248,7 @@ namespace Skuld.Services.WebSocket
 							Data = snowflakes
 						};
 
-						var res = EventResult<WebSocketSnowFlakes>.FromSuccess(wsgld);
+						var res = EventResult.FromSuccess(wsgld);
 
 						var cnv = JsonConvert.SerializeObject(res);
 
@@ -256,7 +256,7 @@ namespace Skuld.Services.WebSocket
 					}
 					else
 					{
-						await conn.Send(JsonConvert.SerializeObject(EventResult<WebSocketSnowFlakes>.FromFailure("Guild not found"))).ConfigureAwait(false);
+						await conn.Send(JsonConvert.SerializeObject(EventResult.FromFailure("Guild not found"))).ConfigureAwait(false);
 					}
 				}
 				else

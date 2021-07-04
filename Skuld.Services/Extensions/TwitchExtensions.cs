@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Skuld.Core;
 using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Formatting;
 using Skuld.Core.Extensions.Verification;
@@ -46,6 +47,9 @@ namespace Skuld.Services.Extensions
 					channelIcon = DiscordUtilities.TwitchAffiliate.ToString();
 					break;
 			}
+			var bytes = new byte[3];
+
+			SkuldRandom.Fill(bytes);
 
 			var embed = new EmbedBuilder
 			{
@@ -54,7 +58,7 @@ namespace Skuld.Services.Extensions
 					Name = name,
 					IconUrl = iconurl
 				},
-				Color = EmbedExtensions.RandomEmbedColor()
+				Color = new Color(bytes[0], bytes[1], bytes[2])
 			};
 
 			embed.Url = channel.Url;
@@ -72,7 +76,7 @@ namespace Skuld.Services.Extensions
 
 			if (!channelBadges.IsNullOrWhiteSpace())
 			{
-				embed.AddInlineField("Channel Badges", channelBadges);
+				embed.AddField("Channel Badges", channelBadges, true);
 			}
 
 			if (stream is not null)
@@ -81,9 +85,9 @@ namespace Skuld.Services.Extensions
 
 				if (!stream.Game.IsNullOrWhiteSpace())
 				{
-					embed.AddInlineField("Streaming", stream.Game);
+					embed.AddField("Streaming", stream.Game, true);
 				}
-				embed.AddInlineField("Viewers 👀", stream.Viewers.ToFormattedString());
+				embed.AddField("Viewers 👀", stream.Viewers.ToFormattedString(), true);
 
 				if (stream.Preview is not null)
 				{
@@ -92,11 +96,11 @@ namespace Skuld.Services.Extensions
 
 				var uptime = DateTime.UtcNow.Subtract(stream.CreatedAt);
 
-				embed.AddInlineField("Uptime", $"{uptime.ToDifferenceString()}");
+				embed.AddField("Uptime", $"{uptime.ToDifferenceString()}", true);
 			}
 			else
 			{
-				embed.AddInlineField("Total Views", channel.Views.ToFormattedString());
+				embed.AddField("Total Views", channel.Views.ToFormattedString(), true);
 			}
 
 			return embed;

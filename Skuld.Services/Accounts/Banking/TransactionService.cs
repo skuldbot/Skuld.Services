@@ -43,7 +43,7 @@ namespace Skuld.Services.Banking
 
 			DogStatsd.Increment("economy.processed", (int)transaction.Amount);
 
-			return EventResult<bool>.FromSuccess(true);
+			return EventResult.FromSuccess(true);
 		}
 	}
 }

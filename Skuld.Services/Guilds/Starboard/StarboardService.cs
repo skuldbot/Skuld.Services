@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.WebSocket;
+using Microsoft.EntityFrameworkCore;
 using Skuld.Core.Extensions;
 using Skuld.Core.Extensions.Conversion;
 using Skuld.Core.Extensions.Verification;
@@ -345,7 +346,7 @@ namespace Skuld.Services.Guilds.Starboard
 
 			embed.WithDescription(embed.Description);
 
-			embed.AddInlineField("View Original", $"[Message Link]({message.GetJumpUrl()})");
+			embed.AddField("View Original", $"[Message Link]({message.GetJumpUrl()})", true);
 
 			string reactionRange = dbGuild.StarEmote;
 
